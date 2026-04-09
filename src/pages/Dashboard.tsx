@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell,
@@ -62,6 +63,7 @@ function aggregateDemographics(
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [selectedDistrict, setSelectedDistrict] = useState('전체');
   const [selectedMonth,    setSelectedMonth]    = useState('전체');
 
@@ -170,14 +172,14 @@ export default function Dashboard() {
       .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
-    // 9. 이용 시간 및 거리
+    // 8. 이용 시간 및 거리
     fetchTimeDistance(signal)
       .then(res => {
         if (!mountedRef.current) return;
         setTimeDistance(
           (res.data ?? []).map(d => ({
-            time: Number(d.useTime),
-            count: Number(d.totalDistance),
+            time: Number(d.useTime)      || 0,
+            count: Number(d.totalDistance) || 0,
           }))
         );
       })
@@ -201,10 +203,10 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                따릉이 지역별 이용 현황 대시보드{' '}
-                <span className="text-emerald-500 font-medium">| 2025</span>
+                {t('header.title')}{' '}
+                <span className="text-emerald-500 font-medium">{t('header.year')}</span>
               </h1>
-              <p className="text-sm text-slate-500">Seoul Bike Usage Analytics Dashboard</p>
+              <p className="text-sm text-slate-500">{t('header.subtitle')}</p>
             </div>
           </div>
           <AuthNav />
@@ -212,13 +214,13 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">자치구 선택</label>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('filter.districtLabel')}</label>
             <Select value={selectedDistrict} onValueChange={(v) => setSelectedDistrict(v ?? '전체')}>
               <SelectTrigger className="w-[180px] bg-white border-emerald-100 focus:ring-emerald-500">
-                <SelectValue placeholder="자치구 선택" />
+                <SelectValue placeholder={t('filter.districtPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="전체">전체 (서울시)</SelectItem>
+                <SelectItem value="전체">{t('filter.allDistrict')}</SelectItem>
                 {DISTRICTS.map(d => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
                 ))}
@@ -227,15 +229,15 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">월 선택</label>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('filter.monthLabel')}</label>
             <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v ?? '전체')}>
               <SelectTrigger className="w-[140px] bg-white border-emerald-100 focus:ring-emerald-500">
-                <SelectValue placeholder="월 선택" />
+                <SelectValue placeholder={t('filter.monthPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="전체">전체 (연간)</SelectItem>
+                <SelectItem value="전체">{t('filter.allMonth')}</SelectItem>
                 {Array.from({ length: 12 }, (_, i) => (
-                  <SelectItem key={i + 1} value={`${i + 1}`}>{i + 1}월</SelectItem>
+                  <SelectItem key={i + 1} value={`${i + 1}`}>{t('filter.month', { n: i + 1 })}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -245,7 +247,7 @@ export default function Dashboard() {
           {loading && (
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
-              DB 데이터 로딩 중...
+              {t('filter.loading')}
             </div>
           )}
           {error && (
@@ -260,25 +262,25 @@ export default function Dashboard() {
         <div className="lg:col-span-3 flex flex-col gap-4">
           {/* Task 4: totalUsage — DB 실데이터 */}
           <MetricCard
-            title="총 이용건수"
+            title={t('metric.totalUsage')}
             value={totalUsage.toLocaleString()}
-            unit="건"
+            unit={t('metric.totalUsageUnit')}
             icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}
             delay={0.1}
           />
           {/* 이용 구 수 — districtUsage에서 계산 */}
           <MetricCard
-            title="데이터 수집 자치구"
+            title={t('metric.districts')}
             value={districtUsage.length.toString()}
-            unit="개 구"
+            unit={t('metric.districtsUnit')}
             icon={<Users className="w-4 h-4 text-emerald-500" />}
             delay={0.2}
           />
           {/* Task 4: totalCarbon — DB 실데이터 */}
           <MetricCard
-            title="총 탄소 절감량"
+            title={t('metric.carbon')}
             value={totalCarbon.toLocaleString()}
-            unit="kg CO2"
+            unit={t('metric.carbonUnit')}
             icon={<Leaf className="w-4 h-4 text-emerald-500" />}
             delay={0.3}
           />
@@ -288,7 +290,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-emerald-500" />
-                일별/월별 대여 추이
+                {t('chart.dailyTrend')}
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[180px] p-2">
@@ -311,9 +313,9 @@ export default function Dashboard() {
             <CardHeader className="pb-0">
               <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-500" />
-                자치구별 이용 현황
+                {t('chart.mapTitle')}
               </CardTitle>
-              <p className="text-xs text-slate-400">: 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.</p>
+              <p className="text-xs text-slate-400">{t('chart.mapHint')}</p>
             </CardHeader>
             <CardContent className="relative h-[500px] p-0 overflow-hidden">
               {/* Task 4: SeoulMap에 DB 데이터 주입 */}
@@ -333,7 +335,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-emerald-500" />
-                상위 10개 대여소 (최고 이용건수)
+                {t('chart.topStations')}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -368,7 +370,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-500" />
-                사용자 인구통계 (연령별)
+                {t('chart.demographics')}
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[180px] p-2">
@@ -392,17 +394,17 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-500" />
-              거리 vs 탄소 절감량
+              {t('chart.scatter')}
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2">
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis type="number" dataKey="distance" name="거리" unit="m" fontSize={10} />
-                <YAxis type="number" dataKey="carbon"   name="탄소" unit="g" fontSize={10} />
+                <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
+                <YAxis type="number" dataKey="carbon"   name={t('chart.scatterY')} unit="g" fontSize={10} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter name="이용건" data={scatterData} fill="#10b981" fillOpacity={0.6} />
+                <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
               </ScatterChart>
             </ResponsiveContainer>
           </CardContent>
@@ -413,7 +415,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-500" />
-              대여소 회전율 분석 (대여 유형)
+              {t('chart.turnover')}
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2">
@@ -440,7 +442,7 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <Clock className="w-4 h-4 text-emerald-500" />
-              이용 시간 및 거리
+              {t('chart.timeDistance')}
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2">
@@ -458,8 +460,8 @@ export default function Dashboard() {
 
       {/* Footer */}
       <footer className="mt-12 pt-8 border-t border-slate-200 text-center text-slate-400 text-xs">
-        <p>© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.</p>
-        <p className="mt-1">Data source: Seoul Open Data Plaza</p>
+        <p>{t('footer.rights')}</p>
+        <p className="mt-1">{t('footer.source')}</p>
       </footer>
     </div>
   );

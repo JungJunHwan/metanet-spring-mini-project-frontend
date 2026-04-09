@@ -77,6 +77,11 @@ export interface TimeDistanceItem {
   totalDistance: number;
 }
 
+export interface DistanceCarbonItem {
+  distance: number;   // X축: 주행 거리
+  carbon: number;     // Y축: 탄소 절감량
+}
+
 // ─── API 함수 (signal: AbortController.signal 전달 시 페이지 이동 시 요청 중단) ──
 export const fetchTotalUsage       = (signal?: AbortSignal) => api.get<number>('/bike/stats/total-usage', { signal });
 export const fetchTotalCarbon      = (signal?: AbortSignal) => api.get<number>('/bike/stats/total-carbon', { signal });
@@ -87,3 +92,4 @@ export const fetchDemographics     = (signal?: AbortSignal) => api.get<Demograph
 export const fetchTopStations      = (signal?: AbortSignal) => api.get<TopStationItem[]>('/bike/stats/top-stations', { signal });
 export const fetchTurnover         = (signal?: AbortSignal) => api.get<TurnoverItem[]>('/bike/stats/turnover', { signal });
 export const fetchTimeDistance     = (signal?: AbortSignal) => api.get<TimeDistanceItem[]>('/bike/stats/time-distance', { signal });
+export const fetchDistanceCarbon   = (signal?: AbortSignal) => api.get<DistanceCarbonItem[]>('/bike/stats/distance-carbon', { signal });

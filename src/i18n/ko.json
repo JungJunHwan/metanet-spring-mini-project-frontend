@@ -1,0 +1,48 @@
+{
+  "header": {
+    "title": "따릉이 지역별 이용 현황 대시보드",
+    "year": "| 2025",
+    "subtitle": "Seoul Bike Usage Analytics Dashboard"
+  },
+  "filter": {
+    "districtLabel": "자치구 선택",
+    "districtPlaceholder": "자치구 선택",
+    "monthLabel": "월 선택",
+    "monthPlaceholder": "월 선택",
+    "allDistrict": "전체 (서울시)",
+    "allMonth": "전체 (연간)",
+    "loading": "DB 데이터 로딩 중...",
+    "month": "{{n}}월"
+  },
+  "metric": {
+    "totalUsage": "총 이용건수",
+    "totalUsageUnit": "건",
+    "districts": "데이터 수집 자치구",
+    "districtsUnit": "개 구",
+    "carbon": "총 탄소 절감량",
+    "carbonUnit": "kg CO2"
+  },
+  "chart": {
+    "mapTitle": "자치구별 이용 현황",
+    "mapHint": ": 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.",
+    "dailyTrend": "일별/월별 대여 추이",
+    "topStations": "상위 10개 대여소 (최고 이용건수)",
+    "demographics": "사용자 인구통계 (연령별)",
+    "scatter": "거리 vs 탄소 절감량",
+    "scatterX": "거리",
+    "scatterY": "탄소",
+    "scatterName": "이용건",
+    "turnover": "대여소 회전율 분석 (대여 유형)",
+    "timeDistance": "이용 시간 및 거리"
+  },
+  "nav": {
+    "mypage": "마이페이지",
+    "logout": "로그아웃",
+    "login": "로그인",
+    "signup": "회원가입"
+  },
+  "footer": {
+    "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
+    "source": "Data source: Seoul Open Data Plaza"
+  }
+}
