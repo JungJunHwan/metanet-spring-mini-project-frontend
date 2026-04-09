@@ -87,93 +87,96 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  // ── Task 3: 마운트 시 전체 API 병렬 호출 ─────────────────────────
+  // ── Task 4: 마운트 시 전체 API 개별 호출 (순차적/점진적 UI 반영) ──────────────────
   useEffect(() => {
     setLoading(true);
+    let completedCount = 0;
+    const totalRequests = 9;
 
-    Promise.allSettled([
-      fetchTotalUsage(),
-      fetchTotalCarbon(),
-      fetchDistrictUsage(),
-      fetchDailyTrend(),
-      fetchTimeDistribution(),
-      fetchDemographics(),
-      fetchTopStations(),
-      fetchTurnover(),
-      fetchTimeDistance(),
-    ]).then(([
-      usageRes,
-      carbonRes,
-      districtRes,
-      trendRes,
-      timeDistRes,
-      demoRes,
-      stationsRes,
-      turnoverRes,
-      timeDistanceRes,
-    ]) => {
-      // 각 결과를 개별 처리 — 일부 실패해도 나머지는 렌더링
-      if (usageRes.status === 'fulfilled')
-        setTotalUsage(usageRes.value.data ?? 0);
+    const checkAllFinished = () => {
+      completedCount++;
+      if (completedCount >= totalRequests) {
+        setLoading(false);
+      }
+    };
 
-      if (carbonRes.status === 'fulfilled')
-        setTotalCarbon(Math.round(carbonRes.value.data ?? 0));
+    // 1. 총 이용건수
+    fetchTotalUsage()
+      .then(res => setTotalUsage(res.data ?? 0))
+      .finally(checkAllFinished);
 
-      if (districtRes.status === 'fulfilled')
-        setDistrictUsage(districtRes.value.data ?? []);
+    // 2. 총 탄소 절감량
+    fetchTotalCarbon()
+      .then(res => setTotalCarbon(Math.round(res.data ?? 0)))
+      .finally(checkAllFinished);
 
-      if (trendRes.status === 'fulfilled')
-        setDailyTrend(aggregateToMonthly(trendRes.value.data ?? []));
+    // 3. 자치구별 현황
+    fetchDistrictUsage()
+      .then(res => setDistrictUsage(res.data ?? []))
+      .finally(checkAllFinished);
 
-      if (timeDistRes.status === 'fulfilled') {
+    // 4. 일별 추이 (월별 합산)
+    fetchDailyTrend()
+      .then(res => setDailyTrend(aggregateToMonthly(res.data ?? [])))
+      .finally(checkAllFinished);
+
+    // 5. 시간대별 분포
+    fetchTimeDistribution()
+      .then(res => {
         setTimeDistribution(
-          (timeDistRes.value.data ?? []).map(d => ({
-            hour:  String(d.rentHour).padStart(2, '0'),
+          (res.data ?? []).map(d => ({
+            hour: String(d.rentHour).padStart(2, '0'),
             count: Number(d.usageCount),
           }))
         );
-      }
+      })
+      .finally(checkAllFinished);
 
-      if (demoRes.status === 'fulfilled')
-        setDemographics(aggregateDemographics(demoRes.value.data ?? []));
+    // 6. 인구통계
+    fetchDemographics()
+      .then(res => setDemographics(aggregateDemographics(res.data ?? [])))
+      .finally(checkAllFinished);
 
-      if (stationsRes.status === 'fulfilled') {
+    // 7. 상위 대여소
+    fetchTopStations()
+      .then(res => {
         setTopStations(
-          (stationsRes.value.data ?? []).map(d => ({
-            name:  d.stationName,
+          (res.data ?? []).map(d => ({
+            name: d.stationName,
             count: Number(d.usageCount),
           }))
         );
-      }
+      })
+      .finally(checkAllFinished);
 
-      if (turnoverRes.status === 'fulfilled') {
+    // 8. 대여 유형별 회전율
+    fetchTurnover()
+      .then(res => {
         setTurnover(
-          (turnoverRes.value.data ?? []).map(d => ({
-            name:  d.rentTypeCode ?? '기타',
+          (res.data ?? []).map(d => ({
+            name: d.rentTypeCode ?? '기타',
             value: Number(d.usageCount),
           }))
         );
-      }
+      })
+      .finally(checkAllFinished);
 
-      if (timeDistanceRes.status === 'fulfilled') {
+    // 9. 이용 시간 및 거리
+    fetchTimeDistance()
+      .then(res => {
         setTimeDistance(
-          (timeDistanceRes.value.data ?? []).map(d => ({
-            time:  Number(d.useTime),
+          (res.data ?? []).map(d => ({
+            time: Number(d.useTime),
             count: Number(d.totalDistance),
           }))
         );
-      }
+      })
+      .catch(() => {
+        // 모든 요청 실패 시 에러 처리를 위한 로직 필요시 추가
+        setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
+      })
+      .finally(checkAllFinished);
 
-      // 모든 API가 실패한 경우 에러 메시지
-      const allFailed = [
-        usageRes, carbonRes, districtRes, trendRes,
-        timeDistRes, demoRes, stationsRes, turnoverRes, timeDistanceRes,
-      ].every(r => r.status === 'rejected');
-
-      if (allFailed) {
-        setError('데이터를 불러올 수 없습니다. 로그인 후 다시 시도해 주세요.');
-      }
-    }).finally(() => setLoading(false));
   }, []);
 
   return (
