@@ -28,9 +28,21 @@ function resolveProfileImage(data: UserInfo['profileImage']): string | null {
   if (typeof data === 'string' && (data.startsWith('/') || data.startsWith('http'))) return data
   // 이미 완성된 Data URI 인 경우
   if (typeof data === 'string' && data.startsWith('data:')) return data
-  // raw base64 문자열인 경우
+  if (typeof data === 'string' && data.startsWith('/')) return `http://localhost:8080${data}`
   if (typeof data === 'string') return `data:image/jpeg;base64,${data}`
   return null
+}
+
+function formatBirth(value?: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}/${month}/${day}`
+  }
+  return value.replaceAll('-', '/').slice(0, 10)
 }
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
@@ -52,6 +64,7 @@ export default function MyPage() {
   const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birth: '', gender: '', password: '' })
   const [newImage, setNewImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -61,7 +74,14 @@ export default function MyPage() {
   const fetchUserInfo = useCallback(async () => {
     if (!token || !userId) { navigate('/login'); return }
     try {
-      const { data } = await axios.get<UserInfo>(`/bike/users/${userId}`, { headers: authHeader })
+      const [userRes, imageRes] = await Promise.all([
+        axios.get<UserInfo>(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader }),
+        axios.get(`http://localhost:8080/bike/users/${userId}/profile-image`, {
+          headers: authHeader,
+          responseType: 'blob',
+        }).catch(() => null),
+      ])
+      const data = userRes.data
       setUserInfo(data)
       setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: data.birth ?? '', gender: data.gender ?? '', password: '' })
     } catch {
@@ -92,7 +112,7 @@ export default function MyPage() {
     Object.entries(form).forEach(([k, v]) => { if (v) formData.append(k, v) })
     if (newImage) formData.append('profileImage', newImage)
     try {
-      await axios.patch(`/bike/users/${userId}`, formData, {
+      await axios.patch(`http://localhost:8080/bike/users/${userId}`, formData, {
         headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
       })
       alert('정보가 수정되었습니다.')
@@ -106,7 +126,7 @@ export default function MyPage() {
   }
 
   const handleLogout = async () => {
-    try { await axios.post('/bike/auth/logout', {}, { headers: authHeader }) } catch {}
+    try { await axios.post('http://localhost:8080/bike/auth/logout', {}, { headers: authHeader }) } catch {}
     localStorage.removeItem('token'); localStorage.removeItem('userId')
     navigate('/login')
   }
@@ -114,7 +134,7 @@ export default function MyPage() {
   const handleWithdraw = async () => {
     if (!window.confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
     try {
-      await axios.delete(`/bike/users/${userId}`, { headers: authHeader })
+      await axios.delete(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader })
       alert('회원 탈퇴가 완료되었습니다.')
       localStorage.removeItem('token'); localStorage.removeItem('userId')
       navigate('/')
@@ -131,7 +151,7 @@ export default function MyPage() {
     )
   }
 
-  const profileSrc = imagePreview ?? resolveProfileImage(userInfo?.profileImage)
+  const profileSrc = imagePreview ?? profileImageUrl ?? resolveProfileImage(userInfo?.profileImage)
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center p-4 py-12">

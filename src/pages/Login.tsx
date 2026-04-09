@@ -5,8 +5,6 @@ import { Bike, LogIn } from 'lucide-react'
 
 export default function Login() {
   const navigate = useNavigate()
-  // ★ key 이름은 반드시 백엔드 UserLoginReqDto 필드명과 일치해야 함
-  //   userId(X) → loginId(O)
   const [form, setForm] = useState({ loginId: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +19,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await axios.post('/bike/users/login', form)
+      const { data } = await axios.post('http://localhost:8080/bike/users/login', form)
       localStorage.setItem('token', data.token)
       localStorage.setItem('userId', data.userId)
       navigate('/')

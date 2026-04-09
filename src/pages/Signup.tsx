@@ -3,8 +3,6 @@ import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { Bike, UserPlus } from 'lucide-react'
 
-// ★ key 이름은 반드시 백엔드 UserCreateReqDto 필드명과 일치해야 함
-//   userId(X) → loginId(O),  birthDate(X) → birth(O)
 const INITIAL = { loginId: '', password: '', name: '', email: '', phone: '', birth: '', gender: '' }
 
 interface FieldProps {
@@ -62,7 +60,7 @@ export default function Signup() {
     Object.entries(form).forEach(([k, v]) => formData.append(k, v))
     if (profileImage) formData.append('profileImage', profileImage)
     try {
-      await axios.post('/bike/users/signup', formData, {
+      await axios.post('http://localhost:8080/bike/users/signup', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       alert('회원가입이 완료되었습니다!')
