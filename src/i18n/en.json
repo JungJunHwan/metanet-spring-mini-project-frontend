@@ -1,0 +1,48 @@
+{
+  "header": {
+    "title": "Seoul Bike Regional Usage Dashboard",
+    "year": "| 2025",
+    "subtitle": "Seoul Bike Usage Analytics Dashboard"
+  },
+  "filter": {
+    "districtLabel": "Select District",
+    "districtPlaceholder": "Select District",
+    "monthLabel": "Select Month",
+    "monthPlaceholder": "Select Month",
+    "allDistrict": "All (Seoul)",
+    "allMonth": "All (Annual)",
+    "loading": "Loading data...",
+    "month": "Month {{n}}"
+  },
+  "metric": {
+    "totalUsage": "Total Rides",
+    "totalUsageUnit": "rides",
+    "districts": "Districts Collected",
+    "districtsUnit": "districts",
+    "carbon": "Total Carbon Saved",
+    "carbonUnit": "kg CO2"
+  },
+  "chart": {
+    "mapTitle": "Usage by District",
+    "mapHint": ": Click on the map to view district-level statistics.",
+    "dailyTrend": "Daily / Monthly Trend",
+    "topStations": "Top 10 Stations (Highest Usage)",
+    "demographics": "User Demographics (by Age)",
+    "scatter": "Distance vs Carbon Savings",
+    "scatterX": "Distance",
+    "scatterY": "Carbon",
+    "scatterName": "Rides",
+    "turnover": "Station Turnover (by Rental Type)",
+    "timeDistance": "Usage Time & Distance"
+  },
+  "nav": {
+    "mypage": "My Page",
+    "logout": "Logout",
+    "login": "Login",
+    "signup": "Sign Up"
+  },
+  "footer": {
+    "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
+    "source": "Data source: Seoul Open Data Plaza"
+  }
+}

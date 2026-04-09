@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { Bike, User, Pencil, Trash2, LogOut, Save, X } from 'lucide-react'
@@ -24,25 +24,10 @@ interface FormState {
 
 function resolveProfileImage(data: UserInfo['profileImage']): string | null {
   if (!data) return null
-  // 백엔드가 "/bike/users/{id}/profile-image" URL 경로를 내려줄 때 → 그대로 src 로 사용
   if (typeof data === 'string' && (data.startsWith('/') || data.startsWith('http'))) return data
-  // 이미 완성된 Data URI 인 경우
   if (typeof data === 'string' && data.startsWith('data:')) return data
-  if (typeof data === 'string' && data.startsWith('/')) return `http://localhost:8080${data}`
   if (typeof data === 'string') return `data:image/jpeg;base64,${data}`
   return null
-}
-
-function formatBirth(value?: string): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (!Number.isNaN(date.getTime())) {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}/${month}/${day}`
-  }
-  return value.replaceAll('-', '/').slice(0, 10)
 }
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
@@ -54,44 +39,70 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   )
 }
 
+// 데이터 로딩 중 개별 행을 대체하는 스켈레톤 — 페이지 구조는 유지
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+      <div className="w-20 h-3 bg-slate-100 rounded animate-pulse shrink-0" />
+      <div className="h-3 bg-slate-100 rounded animate-pulse w-36" />
+    </div>
+  )
+}
+
 export default function MyPage() {
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
   const userId = localStorage.getItem('userId')
+
+  // 언마운트 후 setState 호출 방지 플래그
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birth: '', gender: '', password: '' })
   const [newImage, setNewImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const authHeader = { Authorization: `Bearer ${token}` }
-
-  const fetchUserInfo = useCallback(async () => {
+  // signal 파라미터: useEffect의 AbortController에서 전달, 수동 호출 시 생략 가능
+  const fetchUserInfo = useCallback(async (signal?: AbortSignal) => {
     if (!token || !userId) { navigate('/login'); return }
     try {
-      const [userRes, imageRes] = await Promise.all([
-        axios.get<UserInfo>(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader }),
-        axios.get(`http://localhost:8080/bike/users/${userId}/profile-image`, {
-          headers: authHeader,
-          responseType: 'blob',
-        }).catch(() => null),
-      ])
-      const data = userRes.data
+      const { data } = await axios.get<UserInfo>(`/bike/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal,
+      })
+      if (!mountedRef.current) return
       setUserInfo(data)
-      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: data.birth ?? '', gender: data.gender ?? '', password: '' })
-    } catch {
-      setError('사용자 정보를 불러오는 데 실패했습니다.')
+      setForm({
+        name: data.name ?? '',
+        email: data.email ?? '',
+        phone: data.phone ?? '',
+        birth: data.birth ?? '',
+        gender: data.gender ?? '',
+        password: '',
+      })
+    } catch (err: unknown) {
+      // AbortError는 정상적인 언마운트 취소 — 에러 표시 없이 무시
+      if ((err as any)?.code === 'ERR_CANCELED') return
+      if (mountedRef.current) setError('사용자 정보를 불러오는 데 실패했습니다.')
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
-  }, [userId, token]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, token, navigate])
 
-  useEffect(() => { fetchUserInfo() }, [fetchUserInfo])
+  // AbortController: 마이페이지를 벗어나면 진행 중인 프로필 API 즉시 취소
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchUserInfo(controller.signal)
+    return () => { controller.abort() }
+  }, [fetchUserInfo])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -112,12 +123,12 @@ export default function MyPage() {
     Object.entries(form).forEach(([k, v]) => { if (v) formData.append(k, v) })
     if (newImage) formData.append('profileImage', newImage)
     try {
-      await axios.patch(`http://localhost:8080/bike/users/${userId}`, formData, {
-        headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
+      await axios.patch(`/bike/users/${userId}`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       })
       alert('정보가 수정되었습니다.')
       setEditMode(false); setNewImage(null); setImagePreview(null)
-      await fetchUserInfo()
+      await fetchUserInfo()  // 저장 후 최신 데이터 재조회 (signal 없이 — 사용자 트리거)
     } catch (err: any) {
       setError(err.response?.data?.message || '정보 수정 중 오류가 발생했습니다.')
     } finally {
@@ -125,16 +136,24 @@ export default function MyPage() {
     }
   }
 
-  const handleLogout = async () => {
-    try { await axios.post('http://localhost:8080/bike/auth/logout', {}, { headers: authHeader }) } catch {}
-    localStorage.removeItem('token'); localStorage.removeItem('userId')
+  // AuthNav와 동일한 즉시 로그아웃 패턴: 백엔드 응답 대기 없음
+  const handleLogout = () => {
+    const savedToken = token
+    localStorage.removeItem('token')
+    localStorage.removeItem('userId')
+    delete axios.defaults.headers.common['Authorization']
     navigate('/login')
+    if (savedToken) {
+      axios.post('/bike/auth/logout', {}, {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      }).catch(() => {})
+    }
   }
 
   const handleWithdraw = async () => {
     if (!window.confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
     try {
-      await axios.delete(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader })
+      await axios.delete(`/bike/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } })
       alert('회원 탈퇴가 완료되었습니다.')
       localStorage.removeItem('token'); localStorage.removeItem('userId')
       navigate('/')
@@ -143,19 +162,13 @@ export default function MyPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-        <p className="text-slate-500 text-sm">불러오는 중...</p>
-      </div>
-    )
-  }
+  const profileSrc = imagePreview ?? resolveProfileImage(userInfo?.profileImage)
 
-  const profileSrc = imagePreview ?? profileImageUrl ?? resolveProfileImage(userInfo?.profileImage)
-
+  // early return 제거: 페이지 쉘(Brand, 카드 컨테이너)은 즉시 렌더링
+  // 데이터가 필요한 내부 블록만 스켈레톤으로 대체
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center p-4 py-12">
-      {/* Brand */}
+      {/* Brand — 로딩 여부와 무관하게 항상 즉시 표시 */}
       <Link to="/" className="flex items-center gap-2 mb-8 group self-start md:self-center">
         <div className="bg-emerald-500 p-2 rounded-xl group-hover:bg-emerald-600 transition-colors">
           <Bike className="text-white w-6 h-6" />
@@ -164,18 +177,33 @@ export default function MyPage() {
       </Link>
 
       <div className="w-full max-w-md bg-white rounded-2xl ring-1 ring-slate-200 shadow-sm p-8">
-        {/* Profile Header */}
+
+        {/* Profile Header — 로딩 중에는 스켈레톤, 완료 후 실제 데이터 */}
         <div className="flex items-center gap-4 pb-6 mb-6 border-b border-slate-100">
-          {profileSrc ? (
+          {loading ? (
+            /* 아바타 스켈레톤 */
+            <div className="h-16 w-16 rounded-full bg-slate-100 animate-pulse shrink-0" />
+          ) : profileSrc ? (
             <img src={profileSrc} alt="프로필" className="h-16 w-16 rounded-full object-cover ring-2 ring-emerald-200 shrink-0" />
           ) : (
             <div className="h-16 w-16 rounded-full bg-emerald-500 flex items-center justify-center ring-2 ring-emerald-200 shrink-0">
               <User className="h-8 w-8 text-white" />
             </div>
           )}
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">{userInfo?.name}</h2>
-            <p className="text-sm text-slate-500">@{userInfo?.userId}</p>
+
+          <div className="flex flex-col gap-1.5 min-w-0">
+            {loading ? (
+              /* 이름/아이디 스켈레톤 */
+              <>
+                <div className="h-4 w-28 bg-slate-100 rounded animate-pulse" />
+                <div className="h-3 w-20 bg-slate-100 rounded animate-pulse" />
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-slate-900">{userInfo?.name}</h2>
+                <p className="text-sm text-slate-500">@{userInfo?.userId}</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -183,7 +211,15 @@ export default function MyPage() {
           <p className="mb-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-600 text-center">{error}</p>
         )}
 
-        {!editMode ? (
+        {loading ? (
+          /* 정보 행 스켈레톤 — 레이아웃 점프 없이 실제 InfoRow와 동일한 높이 유지 */
+          <div className="mb-6">
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+          </div>
+        ) : !editMode ? (
           <>
             <div className="mb-6">
               <InfoRow label="이메일" value={userInfo?.email} />
@@ -216,10 +252,10 @@ export default function MyPage() {
         ) : (
           <form onSubmit={handleUpdate} className="flex flex-col gap-4">
             {[
-              { label: '이름', name: 'name', type: 'text' },
-              { label: '이메일', name: 'email', type: 'email' },
-              { label: '연락처', name: 'phone', type: 'tel' },
-              { label: '생년월일', name: 'birth', type: 'date' },
+              { label: '이름',    name: 'name',  type: 'text'  },
+              { label: '이메일',  name: 'email', type: 'email' },
+              { label: '연락처',  name: 'phone', type: 'tel'   },
+              { label: '생년월일', name: 'birth', type: 'date'  },
             ].map(({ label, name, type }) => (
               <div key={name} className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
