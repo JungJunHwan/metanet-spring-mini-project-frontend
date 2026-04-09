@@ -147,16 +147,17 @@ export default function Dashboard() {
               </CardTitle>
               <p className="text-xs text-slate-400">: 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.</p>
             </CardHeader>
-            <CardContent className="h-[500px] p-0">
+            <CardContent className="relative h-[500px] p-0 overflow-hidden">
               <SeoulMap
                 selectedDistrict={selectedDistrict}
                 onDistrictSelect={setSelectedDistrict}
               />
-              <div className="absolute bottom-6 left-6 flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">이용건수</span>
+              {/* 범례 — CardContent 기준 absolute 배치 */}
+              <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">이용건수</span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-slate-500">596,403</span>
-                  <div className="w-32 h-2 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-600" />
+                  <div className="w-28 h-2 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-600" />
                   <span className="text-[10px] text-slate-500">4,549,773</span>
                 </div>
               </div>
@@ -294,7 +295,7 @@ export default function Dashboard() {
 
       {/* Footer */}
       <footer className="mt-12 pt-8 border-t border-slate-200 text-center text-slate-400 text-xs">
-        <p>© 2023 Seoul Bike (Ttareungyi) Analytics Dashboard. All rights reserved.</p>
+        <p>© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.</p>
         <p className="mt-1">Data source: Seoul Open Data Plaza</p>
       </footer>
     </div>

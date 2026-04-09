@@ -1,91 +1,182 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useMemo } from 'react'
+import { geoMercator, geoPath } from 'd3-geo'
+import type { GeoPermissibleObjects, ExtendedFeature } from 'd3-geo'
 
-interface SeoulMapProps {
-  selectedDistrict: string;
-  onDistrictSelect: (district: string) => void;
+/**
+ * 서울시 자치구 경계 GeoJSON (southkorea/seoul-maps, kostat 2013)
+ * TopoJSON 대신 GeoJSON을 직접 fetch → topojson-client 의존성 제거 (Vite 8 rolldown 호환)
+ */
+const GEO_URL =
+  'https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo.json'
+
+// 자치구별 모의 이용건수 (색상 강도 계산용)
+const USAGE: Record<string, number> = {
+  강남구: 4549773, 송파구: 3812450, 마포구: 3201340, 영등포구: 2987650,
+  서초구: 2745320, 관악구: 2512780, 강서구: 2389560, 성동구: 2156890,
+  용산구: 2034560, 광진구: 1923450, 동작구: 1812340, 은평구: 1745670,
+  노원구: 1698230, 중구: 1587650, 강동구: 1534560, 서대문구: 1423780,
+  동대문구: 1312450, 성북구: 1256780, 종로구: 1198650, 강북구: 1087540,
+  구로구: 1023450, 양천구: 987650,  중랑구: 865430,  도봉구: 756340,
+  금천구: 596403,
+}
+const MAX_USAGE = Math.max(...Object.values(USAGE))
+
+function usageColor(name: string, selected: boolean): string {
+  if (selected) return '#10b981'        // emerald-500
+  const ratio = (USAGE[name] ?? 0) / MAX_USAGE
+  if (ratio > 0.8) return '#34d399'    // emerald-400
+  if (ratio > 0.6) return '#6ee7b7'    // emerald-300
+  if (ratio > 0.4) return '#a7f3d0'    // emerald-200
+  if (ratio > 0.2) return '#d1fae5'    // emerald-100
+  return '#ecfdf5'                      // emerald-50
 }
 
-// Simplified paths for Seoul districts (approximate)
-const DISTRICT_PATHS = [
-  { id: '강서구', name: '강서구', d: 'M 50,150 L 100,120 L 150,150 L 130,220 L 70,220 Z' },
-  { id: '양천구', name: '양천구', d: 'M 130,220 L 170,220 L 170,260 L 130,260 Z' },
-  { id: '구로구', name: '구로구', d: 'M 100,260 L 150,260 L 150,310 L 100,310 Z' },
-  { id: '금천구', name: '금천구', d: 'M 150,310 L 190,310 L 190,350 L 150,350 Z' },
-  { id: '영등포구', name: '영등포구', d: 'M 170,220 L 230,220 L 230,280 L 170,280 Z' },
-  { id: '동작구', name: '동작구', d: 'M 230,280 L 280,280 L 280,330 L 230,330 Z' },
-  { id: '관악구', name: '관악구', d: 'M 230,330 L 300,330 L 300,380 L 230,380 Z' },
-  { id: '마포구', name: '마포구', d: 'M 150,150 L 220,150 L 220,210 L 150,210 Z' },
-  { id: '서대문구', name: '서대문구', d: 'M 220,150 L 270,150 L 270,200 L 220,200 Z' },
-  { id: '은평구', name: '은평구', d: 'M 200,80 L 270,80 L 270,140 L 200,140 Z' },
-  { id: '종로구', name: '종로구', d: 'M 270,100 L 330,100 L 330,160 L 270,160 Z' },
-  { id: '중구', name: '중구', d: 'M 270,160 L 330,160 L 330,210 L 270,210 Z' },
-  { id: '용산구', name: '용산구', d: 'M 270,210 L 330,210 L 330,270 L 270,270 Z' },
-  { id: '서초구', name: '서초구', d: 'M 330,270 L 400,270 L 400,380 L 330,380 Z' },
-  { id: '강남구', name: '강남구', d: 'M 400,270 L 470,270 L 470,380 L 400,380 Z' },
-  { id: '송파구', name: '송파구', d: 'M 470,270 L 550,270 L 550,380 L 470,380 Z' },
-  { id: '강동구', name: '강동구', d: 'M 550,220 L 620,220 L 620,300 L 550,300 Z' },
-  { id: '성동구', name: '성동구', d: 'M 330,180 L 400,180 L 400,240 L 330,240 Z' },
-  { id: '광진구', name: '광진구', d: 'M 400,180 L 470,180 L 470,240 L 400,240 Z' },
-  { id: '동대문구', name: '동대문구', d: 'M 380,120 L 450,120 L 450,180 L 380,180 Z' },
-  { id: '중랑구', name: '중랑구', d: 'M 450,120 L 520,120 L 520,180 L 450,180 Z' },
-  { id: '성북구', name: '성북구', d: 'M 330,80 L 420,80 L 420,140 L 330,140 Z' },
-  { id: '강북구', name: '강북구', d: 'M 350,20 L 420,20 L 420,80 L 350,80 Z' },
-  { id: '도봉구', name: '도봉구', d: 'M 420,20 L 480,20 L 480,80 L 420,80 Z' },
-  { id: '노원구', name: '노원구', d: 'M 480,20 L 580,20 L 580,120 L 480,120 Z' },
-];
+// SVG 뷰박스 크기
+const W = 800
+const H = 500
 
-export const SeoulMap: React.FC<SeoulMapProps> = ({ selectedDistrict, onDistrictSelect }) => {
+interface Props {
+  selectedDistrict: string
+  onDistrictSelect: (district: string) => void
+}
+
+interface GeoFeature extends ExtendedFeature {
+  properties: { name?: string; NAME_KOR?: string; SIG_KOR_NM?: string } | null
+}
+
+export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
+  const [features, setFeatures] = useState<GeoFeature[]>([])
+  const [hovered, setHovered] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  // d3-geo 프로젝션 — 서울 중심 메르카토르
+  const pathGen = useMemo(() => {
+    const proj = geoMercator()
+      .center([126.986, 37.561])
+      .scale(80000)
+      .translate([W / 2, H / 2])
+    return geoPath(proj)
+  }, [])
+
+  useEffect(() => {
+    fetch(GEO_URL)
+      .then(r => {
+        if (!r.ok) throw new Error('network error')
+        return r.json()
+      })
+      .then(data => {
+        const feats: GeoFeature[] = data.features ?? []
+        setFeatures(feats)
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex w-full h-full items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-200 border-t-emerald-500" />
+          <span className="text-xs text-slate-400">지도 로딩 중...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex w-full h-full items-center justify-center">
+        <p className="text-xs text-red-400">지도 데이터를 불러오지 못했습니다.</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-4">
+    <div className="relative w-full h-full">
+      {/* 호버 툴팁 */}
+      {hovered && (
+        <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2 select-none rounded-lg bg-slate-800/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+          {hovered}
+          {USAGE[hovered] && (
+            <span className="font-normal text-emerald-300">
+              &nbsp;— {USAGE[hovered].toLocaleString()}건
+            </span>
+          )}
+        </div>
+      )}
+
       <svg
-        viewBox="0 0 650 400"
-        className="w-full h-full max-h-[500px]"
-        style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: '100%', height: '100%' }}
+        aria-label="서울시 자치구 지도"
       >
-        {DISTRICT_PATHS.map((district) => {
-          const isSelected = selectedDistrict === district.name;
-          // Generate a random green intensity for the choropleth effect
-          const intensity = Math.floor(Math.random() * 50) + 20;
-          const fillColor = isSelected ? '#10b981' : `rgba(16, 185, 129, 0.${intensity})`;
+        {features.map((feature, idx) => {
+          const name =
+            feature.properties?.name ??
+            feature.properties?.NAME_KOR ??
+            feature.properties?.SIG_KOR_NM ??
+            ''
+          const isSelected = selectedDistrict === name
+          const isHovered = hovered === name
+          const d = pathGen(feature as GeoPermissibleObjects)
+          if (!d) return null
 
           return (
-            <motion.path
-              key={district.id}
-              d={district.d}
-              fill={fillColor}
-              stroke="#fff"
-              strokeWidth="2"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ scale: 1.02, fill: '#059669', transition: { duration: 0.2 } }}
-              onClick={() => onDistrictSelect(district.name)}
-              className="cursor-pointer transition-colors duration-200"
+            <path
+              key={idx}
+              d={d}
+              fill={usageColor(name, isSelected)}
+              stroke="#ffffff"
+              strokeWidth={isSelected || isHovered ? 2 : 1.2}
+              style={{
+                cursor: 'pointer',
+                transition: 'fill 0.18s, filter 0.18s',
+                filter:
+                  isSelected
+                    ? 'drop-shadow(0 0 6px rgba(16,185,129,0.55))'
+                    : isHovered
+                    ? 'drop-shadow(0 0 3px rgba(52,211,153,0.4))'
+                    : 'none',
+              }}
+              onClick={() => onDistrictSelect(name)}
+              onMouseEnter={() => setHovered(name)}
+              onMouseLeave={() => setHovered('')}
             >
-              <title>{district.name}</title>
-            </motion.path>
-          );
+              <title>{name}</title>
+            </path>
+          )
         })}
-        {DISTRICT_PATHS.map((district) => {
-          // Calculate center of path (very rough approximation)
-          const coords = district.d.match(/\d+/g)?.map(Number) || [];
-          if (coords.length < 4) return null;
-          const centerX = (coords[0] + coords[2]) / 2;
-          const centerY = (coords[1] + coords[3]) / 2;
+
+        {/* 자치구 이름 레이블 */}
+        {features.map((feature, idx) => {
+          const name =
+            feature.properties?.name ??
+            feature.properties?.NAME_KOR ??
+            feature.properties?.SIG_KOR_NM ??
+            ''
+          const centroid = pathGen.centroid(feature as GeoPermissibleObjects)
+          if (!centroid || isNaN(centroid[0])) return null
 
           return (
             <text
-              key={`${district.id}-label`}
-              x={centerX}
-              y={centerY}
+              key={`label-${idx}`}
+              x={centroid[0]}
+              y={centroid[1]}
               textAnchor="middle"
-              className="text-[10px] font-bold pointer-events-none fill-slate-800"
+              dominantBaseline="central"
+              fontSize={9}
+              fontWeight={600}
+              fill="#1e293b"
+              pointerEvents="none"
+              style={{ userSelect: 'none' }}
             >
-              {district.name}
+              {name}
             </text>
-          );
+          )
         })}
       </svg>
     </div>
-  );
-};
+  )
+}
