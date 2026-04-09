@@ -5,7 +5,7 @@ import { Bike, LogIn } from 'lucide-react'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ userId: '', password: '' })
+  const [form, setForm] = useState({ loginId: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -19,7 +19,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await axios.post('/bike/users/login', form)
+      const { data } = await axios.post('http://localhost:8080/bike/users/login', form)
       localStorage.setItem('token', data.token)
       localStorage.setItem('userId', data.userId)
       navigate('/')
@@ -49,8 +49,8 @@ export default function Login() {
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">아이디</label>
             <input
               type="text"
-              name="userId"
-              value={form.userId}
+              name="loginId"
+              value={form.loginId}
               onChange={handleChange}
               placeholder="아이디를 입력하세요"
               required

@@ -8,7 +8,7 @@ interface UserInfo {
   name: string
   email: string
   phone: string
-  birthDate: string
+  birth: string
   gender: string
   profileImage?: string | number[] | null
 }
@@ -17,7 +17,7 @@ interface FormState {
   name: string
   email: string
   phone: string
-  birthDate: string
+  birth: string
   gender: string
   password: string
 }
@@ -25,6 +25,7 @@ interface FormState {
 function resolveProfileImage(data: UserInfo['profileImage']): string | null {
   if (!data) return null
   if (typeof data === 'string' && data.startsWith('data:')) return data
+  if (typeof data === 'string' && data.startsWith('/')) return `http://localhost:8080${data}`
   if (typeof data === 'string') return `data:image/jpeg;base64,${data}`
   if (Array.isArray(data)) {
     const bytes = new Uint8Array(data)
@@ -32,6 +33,18 @@ function resolveProfileImage(data: UserInfo['profileImage']): string | null {
     return `data:image/jpeg;base64,${btoa(binary)}`
   }
   return null
+}
+
+function formatBirth(value?: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}/${month}/${day}`
+  }
+  return value.replaceAll('-', '/').slice(0, 10)
 }
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
@@ -50,9 +63,10 @@ export default function MyPage() {
 
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [editMode, setEditMode] = useState(false)
-  const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birthDate: '', gender: '', password: '' })
+  const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birth: '', gender: '', password: '' })
   const [newImage, setNewImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -62,9 +76,21 @@ export default function MyPage() {
   const fetchUserInfo = useCallback(async () => {
     if (!token || !userId) { navigate('/login'); return }
     try {
-      const { data } = await axios.get<UserInfo>(`/bike/users/${userId}`, { headers: authHeader })
+      const [userRes, imageRes] = await Promise.all([
+        axios.get<UserInfo>(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader }),
+        axios.get(`http://localhost:8080/bike/users/${userId}/profile-image`, {
+          headers: authHeader,
+          responseType: 'blob',
+        }).catch(() => null),
+      ])
+      const data = userRes.data
       setUserInfo(data)
-      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birthDate: data.birthDate ?? '', gender: data.gender ?? '', password: '' })
+      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: formatBirth(data.birth), gender: data.gender ?? '', password: '' })
+      if (imageRes?.data && imageRes.data.size > 0) {
+        setProfileImageUrl(URL.createObjectURL(imageRes.data))
+      } else {
+        setProfileImageUrl(null)
+      }
     } catch {
       setError('사용자 정보를 불러오는 데 실패했습니다.')
     } finally {
@@ -93,7 +119,7 @@ export default function MyPage() {
     Object.entries(form).forEach(([k, v]) => { if (v) formData.append(k, v) })
     if (newImage) formData.append('profileImage', newImage)
     try {
-      await axios.patch(`/bike/users/${userId}`, formData, {
+      await axios.patch(`http://localhost:8080/bike/users/${userId}`, formData, {
         headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
       })
       alert('정보가 수정되었습니다.')
@@ -107,7 +133,7 @@ export default function MyPage() {
   }
 
   const handleLogout = async () => {
-    try { await axios.post('/bike/auth/logout', {}, { headers: authHeader }) } catch {}
+    try { await axios.post('http://localhost:8080/bike/auth/logout', {}, { headers: authHeader }) } catch {}
     localStorage.removeItem('token'); localStorage.removeItem('userId')
     navigate('/login')
   }
@@ -115,7 +141,7 @@ export default function MyPage() {
   const handleWithdraw = async () => {
     if (!window.confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
     try {
-      await axios.delete(`/bike/users/${userId}`, { headers: authHeader })
+      await axios.delete(`http://localhost:8080/bike/users/${userId}`, { headers: authHeader })
       alert('회원 탈퇴가 완료되었습니다.')
       localStorage.removeItem('token'); localStorage.removeItem('userId')
       navigate('/')
@@ -132,7 +158,7 @@ export default function MyPage() {
     )
   }
 
-  const profileSrc = imagePreview ?? resolveProfileImage(userInfo?.profileImage)
+  const profileSrc = imagePreview ?? profileImageUrl ?? resolveProfileImage(userInfo?.profileImage)
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center p-4 py-12">
@@ -169,8 +195,8 @@ export default function MyPage() {
             <div className="mb-6">
               <InfoRow label="이메일" value={userInfo?.email} />
               <InfoRow label="연락처" value={userInfo?.phone} />
-              <InfoRow label="생년월일" value={userInfo?.birthDate} />
-              <InfoRow label="성별" value={userInfo?.gender === 'MALE' ? '남성' : userInfo?.gender === 'FEMALE' ? '여성' : undefined} />
+              <InfoRow label="생년월일" value={formatBirth(userInfo?.birth)} />
+              <InfoRow label="성별" value={userInfo?.gender === 'M' ? '남성' : userInfo?.gender === 'F' ? '여성' : undefined} />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -200,7 +226,7 @@ export default function MyPage() {
               { label: '이름', name: 'name', type: 'text' },
               { label: '이메일', name: 'email', type: 'email' },
               { label: '연락처', name: 'phone', type: 'tel' },
-              { label: '생년월일', name: 'birthDate', type: 'date' },
+              { label: '생년월일', name: 'birth', type: 'text' },
             ].map(({ label, name, type }) => (
               <div key={name} className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -223,8 +249,8 @@ export default function MyPage() {
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 bg-white"
               >
                 <option value="">선택</option>
-                <option value="MALE">남성</option>
-                <option value="FEMALE">여성</option>
+                <option value="M">남성</option>
+                <option value="F">여성</option>
               </select>
             </div>
 
