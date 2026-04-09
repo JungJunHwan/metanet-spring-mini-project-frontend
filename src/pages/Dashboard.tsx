@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell,
@@ -87,42 +87,63 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  // ── Task 4: 마운트 시 전체 API 개별 호출 (순차적/점진적 UI 반영) ──────────────────
+  // ── 마운트 플래그: 언마운트 후 setState 호출 방지 ──────────────────
+  const mountedRef = useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // ── API 호출: AbortController로 페이지 이동 시 진행 중인 요청 즉시 중단 ──
+  useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
     setLoading(true);
     let completedCount = 0;
     const totalRequests = 9;
 
     const checkAllFinished = () => {
       completedCount++;
-      if (completedCount >= totalRequests) {
+      if (completedCount >= totalRequests && mountedRef.current) {
         setLoading(false);
       }
     };
 
+    // AbortError는 정상적인 중단 — 에러 표시 없이 조용히 무시
+    const ignoreAbort = (fn: () => void) => (err: unknown) => {
+      if ((err as any)?.code === 'ERR_CANCELED') return;
+      fn();
+    };
+
     // 1. 총 이용건수
-    fetchTotalUsage()
-      .then(res => setTotalUsage(res.data ?? 0))
+    fetchTotalUsage(signal)
+      .then(res => { if (mountedRef.current) setTotalUsage(res.data ?? 0) })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 2. 총 탄소 절감량
-    fetchTotalCarbon()
-      .then(res => setTotalCarbon(Math.round(res.data ?? 0)))
+    fetchTotalCarbon(signal)
+      .then(res => { if (mountedRef.current) setTotalCarbon(Math.round(res.data ?? 0)) })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 3. 자치구별 현황
-    fetchDistrictUsage()
-      .then(res => setDistrictUsage(res.data ?? []))
+    fetchDistrictUsage(signal)
+      .then(res => { if (mountedRef.current) setDistrictUsage(res.data ?? []) })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 4. 일별 추이 (월별 합산)
-    fetchDailyTrend()
-      .then(res => setDailyTrend(aggregateToMonthly(res.data ?? [])))
+    fetchDailyTrend(signal)
+      .then(res => { if (mountedRef.current) setDailyTrend(aggregateToMonthly(res.data ?? [])) })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 5. 시간대별 분포
-    fetchTimeDistribution()
+    fetchTimeDistribution(signal)
       .then(res => {
+        if (!mountedRef.current) return;
         setTimeDistribution(
           (res.data ?? []).map(d => ({
             hour: String(d.rentHour).padStart(2, '0'),
@@ -130,16 +151,19 @@ export default function Dashboard() {
           }))
         );
       })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 6. 인구통계
-    fetchDemographics()
-      .then(res => setDemographics(aggregateDemographics(res.data ?? [])))
+    fetchDemographics(signal)
+      .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [])) })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 7. 상위 대여소
-    fetchTopStations()
+    fetchTopStations(signal)
       .then(res => {
+        if (!mountedRef.current) return;
         setTopStations(
           (res.data ?? []).map(d => ({
             name: d.stationName,
@@ -147,11 +171,13 @@ export default function Dashboard() {
           }))
         );
       })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 8. 대여 유형별 회전율
-    fetchTurnover()
+    fetchTurnover(signal)
       .then(res => {
+        if (!mountedRef.current) return;
         setTurnover(
           (res.data ?? []).map(d => ({
             name: d.rentTypeCode ?? '기타',
@@ -159,11 +185,13 @@ export default function Dashboard() {
           }))
         );
       })
+      .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
     // 9. 이용 시간 및 거리
-    fetchTimeDistance()
+    fetchTimeDistance(signal)
       .then(res => {
+        if (!mountedRef.current) return;
         setTimeDistance(
           (res.data ?? []).map(d => ({
             time: Number(d.useTime),
@@ -171,12 +199,13 @@ export default function Dashboard() {
           }))
         );
       })
-      .catch(() => {
-        // 모든 요청 실패 시 에러 처리를 위한 로직 필요시 추가
-        setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
-      })
+      .catch(ignoreAbort(() => {
+        if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
+      }))
       .finally(checkAllFinished);
 
+    // 클린업: 컴포넌트 언마운트(페이지 이동) 시 진행 중인 모든 요청 즉시 중단
+    return () => { controller.abort(); };
   }, []);
 
   return (
@@ -202,7 +231,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">자치구 선택</label>
-            <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+            <Select value={selectedDistrict} onValueChange={(v) => setSelectedDistrict(v ?? '전체')}>
               <SelectTrigger className="w-[180px] bg-white border-emerald-100 focus:ring-emerald-500">
                 <SelectValue placeholder="자치구 선택" />
               </SelectTrigger>
@@ -217,7 +246,7 @@ export default function Dashboard() {
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">월 선택</label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v ?? '전체')}>
               <SelectTrigger className="w-[140px] bg-white border-emerald-100 focus:ring-emerald-500">
                 <SelectValue placeholder="월 선택" />
               </SelectTrigger>

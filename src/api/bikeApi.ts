@@ -14,6 +14,7 @@ import axios from 'axios';
  */
 const api = axios.create();
 
+// ── 요청 인터셉터: JWT 자동 주입 ─────────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -21,6 +22,23 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// ── 응답 인터셉터: 401/403 → 즉시 자동 로그아웃 ──────────────────────
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      // 데이터 로딩 중이라도 인증 정보를 즉시 제거 후 로그인 페이지로 강제 이동
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      delete axios.defaults.headers.common['Authorization'];
+      // React Router 컨텍스트 밖이므로 window.location 사용
+      window.location.replace('/login');
+    }
+    return Promise.reject(error);
+  },
+);
 
 // ─── 응답 타입 정의 ─────────────────────────────────────────────────
 export interface DistrictUsageItem {
@@ -59,13 +77,13 @@ export interface TimeDistanceItem {
   totalDistance: number;
 }
 
-// ─── API 함수 ────────────────────────────────────────────────────────
-export const fetchTotalUsage       = () => api.get<number>('/bike/stats/total-usage');
-export const fetchTotalCarbon      = () => api.get<number>('/bike/stats/total-carbon');
-export const fetchDistrictUsage    = () => api.get<DistrictUsageItem[]>('/bike/stats/district-usage');
-export const fetchDailyTrend       = () => api.get<DailyTrendItem[]>('/bike/stats/daily-trend');
-export const fetchTimeDistribution = () => api.get<TimeDistributionItem[]>('/bike/stats/time-distribution');
-export const fetchDemographics     = () => api.get<DemographicsItem[]>('/bike/stats/demographics');
-export const fetchTopStations      = () => api.get<TopStationItem[]>('/bike/stats/top-stations');
-export const fetchTurnover         = () => api.get<TurnoverItem[]>('/bike/stats/turnover');
-export const fetchTimeDistance     = () => api.get<TimeDistanceItem[]>('/bike/stats/time-distance');
+// ─── API 함수 (signal: AbortController.signal 전달 시 페이지 이동 시 요청 중단) ──
+export const fetchTotalUsage       = (signal?: AbortSignal) => api.get<number>('/bike/stats/total-usage', { signal });
+export const fetchTotalCarbon      = (signal?: AbortSignal) => api.get<number>('/bike/stats/total-carbon', { signal });
+export const fetchDistrictUsage    = (signal?: AbortSignal) => api.get<DistrictUsageItem[]>('/bike/stats/district-usage', { signal });
+export const fetchDailyTrend       = (signal?: AbortSignal) => api.get<DailyTrendItem[]>('/bike/stats/daily-trend', { signal });
+export const fetchTimeDistribution = (signal?: AbortSignal) => api.get<TimeDistributionItem[]>('/bike/stats/time-distribution', { signal });
+export const fetchDemographics     = (signal?: AbortSignal) => api.get<DemographicsItem[]>('/bike/stats/demographics', { signal });
+export const fetchTopStations      = (signal?: AbortSignal) => api.get<TopStationItem[]>('/bike/stats/top-stations', { signal });
+export const fetchTurnover         = (signal?: AbortSignal) => api.get<TurnoverItem[]>('/bike/stats/turnover', { signal });
+export const fetchTimeDistance     = (signal?: AbortSignal) => api.get<TimeDistanceItem[]>('/bike/stats/time-distance', { signal });

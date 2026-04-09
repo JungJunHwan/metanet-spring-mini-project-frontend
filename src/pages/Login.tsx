@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { Bike, LogIn } from 'lucide-react'
 
 export default function Login() {
-  const navigate = useNavigate()
   // ★ key 이름은 반드시 백엔드 UserLoginReqDto 필드명과 일치해야 함
   //   userId(X) → loginId(O)
   const [form, setForm] = useState({ loginId: '', password: '' })
@@ -23,12 +22,14 @@ export default function Login() {
     try {
       const { data } = await axios.post('/bike/users/login', form)
       localStorage.setItem('token', data.token)
-      localStorage.setItem('userId', data.userId)
-      navigate('/')
+      localStorage.setItem('userId', String(data.userId))
+      // React Router의 상태 머신(스케줄러)을 우회하고 즉시 페이지 전환
+      // replace: 히스토리 스택에 Login을 남기지 않아 뒤로가기 방지
+      window.location.replace('/')
+      // 성공 시 setLoading(false) 불필요 — 컴포넌트가 즉시 파괴됨
     } catch (err: any) {
       setError(err.response?.data?.message || '아이디 또는 비밀번호를 확인해주세요.')
-    } finally {
-      setLoading(false)
+      setLoading(false)  // 실패 경로에서만 로딩 해제
     }
   }
 

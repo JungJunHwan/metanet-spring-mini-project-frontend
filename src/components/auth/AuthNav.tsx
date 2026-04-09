@@ -6,17 +6,19 @@ export function AuthNav() {
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
 
-  const handleLogout = async () => {
-    try {
-      await axios.post('/bike/auth/logout', {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    } catch {
-      // 실패해도 로컬 정리 진행
-    } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('userId')
-      navigate('/login')
+  const handleLogout = () => {
+    // ① 백엔드 응답 대기 없이 즉시 인증 정보 초기화 → 사용자 체감 속도 향상
+    const savedToken = token
+    localStorage.removeItem('token')
+    localStorage.removeItem('userId')
+    // axios 전역 헤더에 남아 있는 인증 토큰도 즉시 제거
+    delete axios.defaults.headers.common['Authorization']
+    navigate('/login')
+    // ② 서버 세션 무효화는 백그라운드로 처리 (fire-and-forget)
+    if (savedToken) {
+      axios.post('/bike/auth/logout', {}, {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      }).catch(() => {})
     }
   }
 
