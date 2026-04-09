@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { Bike, UserPlus } from 'lucide-react'
 
-const INITIAL = { userId: '', password: '', name: '', email: '', phone: '', birthDate: '', gender: '' }
+// ★ key 이름은 반드시 백엔드 UserCreateReqDto 필드명과 일치해야 함
+//   userId(X) → loginId(O),  birthDate(X) → birth(O)
+const INITIAL = { loginId: '', password: '', name: '', email: '', phone: '', birth: '', gender: '' }
 
 interface FieldProps {
   label: string
@@ -87,12 +89,12 @@ export default function Signup() {
         <p className="text-sm text-slate-500 mb-6">새 계정을 만들어 서비스를 이용하세요.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="아이디" name="userId" value={form.userId} onChange={handleChange} required />
+          <Field label="아이디" name="loginId" value={form.loginId} onChange={handleChange} required />
           <Field label="비밀번호" name="password" type="password" value={form.password} onChange={handleChange} required />
           <Field label="이름" name="name" value={form.name} onChange={handleChange} required />
           <Field label="이메일" name="email" type="email" value={form.email} onChange={handleChange} required />
           <Field label="연락처" name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="010-0000-0000" required />
-          <Field label="생년월일" name="birthDate" type="date" value={form.birthDate} onChange={handleChange} required />
+          <Field label="생년월일" name="birth" type="date" value={form.birth} onChange={handleChange} required />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">성별</label>

@@ -5,7 +5,9 @@ import { Bike, LogIn } from 'lucide-react'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ userId: '', password: '' })
+  // ★ key 이름은 반드시 백엔드 UserLoginReqDto 필드명과 일치해야 함
+  //   userId(X) → loginId(O)
+  const [form, setForm] = useState({ loginId: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -49,8 +51,8 @@ export default function Login() {
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">아이디</label>
             <input
               type="text"
-              name="userId"
-              value={form.userId}
+              name="loginId"
+              value={form.loginId}
               onChange={handleChange}
               placeholder="아이디를 입력하세요"
               required
