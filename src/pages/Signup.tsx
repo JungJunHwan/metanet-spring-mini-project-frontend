@@ -66,7 +66,8 @@ export default function Signup() {
       alert('회원가입이 완료되었습니다!')
       navigate('/login')
     } catch (err: any) {
-      setError(err.response?.data?.message || '회원가입 중 오류가 발생했습니다.')
+      // GlobalExceptionHandler 가 plain text(HTTP 400)를 반환하므로 .data 를 직접 사용
+      setError(err.response?.data || '회원가입 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -92,7 +93,7 @@ export default function Signup() {
           <Field label="이름" name="name" value={form.name} onChange={handleChange} required />
           <Field label="이메일" name="email" type="email" value={form.email} onChange={handleChange} required />
           <Field label="연락처" name="phone" type="tel" value={form.phone} onChange={handleChange} placeholder="010-0000-0000" required />
-          <Field label="생년월일" name="birth" value={form.birth} onChange={handleChange} placeholder="1999/05/21" required />
+          <Field label="생년월일" name="birth" type="date" value={form.birth} onChange={handleChange} required />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">성별</label>

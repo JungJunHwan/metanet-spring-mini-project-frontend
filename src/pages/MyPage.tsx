@@ -8,30 +8,28 @@ interface UserInfo {
   name: string
   email: string
   phone: string
-  birth: string
+  birth: string        // 백엔드 UserResDto 필드명 그대로
   gender: string
-  profileImage?: string | number[] | null
+  profileImage?: string | null
 }
 
 interface FormState {
   name: string
   email: string
   phone: string
-  birth: string
+  birth: string        // 백엔드 UserUpdateReqDto 필드명 그대로
   gender: string
   password: string
 }
 
 function resolveProfileImage(data: UserInfo['profileImage']): string | null {
   if (!data) return null
+  // 백엔드가 "/bike/users/{id}/profile-image" URL 경로를 내려줄 때 → 그대로 src 로 사용
+  if (typeof data === 'string' && (data.startsWith('/') || data.startsWith('http'))) return data
+  // 이미 완성된 Data URI 인 경우
   if (typeof data === 'string' && data.startsWith('data:')) return data
   if (typeof data === 'string' && data.startsWith('/')) return `http://localhost:8080${data}`
   if (typeof data === 'string') return `data:image/jpeg;base64,${data}`
-  if (Array.isArray(data)) {
-    const bytes = new Uint8Array(data)
-    const binary = bytes.reduce((acc, b) => acc + String.fromCharCode(b), '')
-    return `data:image/jpeg;base64,${btoa(binary)}`
-  }
   return null
 }
 
@@ -85,12 +83,7 @@ export default function MyPage() {
       ])
       const data = userRes.data
       setUserInfo(data)
-      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: formatBirth(data.birth), gender: data.gender ?? '', password: '' })
-      if (imageRes?.data && imageRes.data.size > 0) {
-        setProfileImageUrl(URL.createObjectURL(imageRes.data))
-      } else {
-        setProfileImageUrl(null)
-      }
+      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: data.birth ?? '', gender: data.gender ?? '', password: '' })
     } catch {
       setError('사용자 정보를 불러오는 데 실패했습니다.')
     } finally {
@@ -195,7 +188,7 @@ export default function MyPage() {
             <div className="mb-6">
               <InfoRow label="이메일" value={userInfo?.email} />
               <InfoRow label="연락처" value={userInfo?.phone} />
-              <InfoRow label="생년월일" value={formatBirth(userInfo?.birth)} />
+              <InfoRow label="생년월일" value={userInfo?.birth ? new Date(userInfo.birth).toLocaleDateString('ko-KR') : undefined} />
               <InfoRow label="성별" value={userInfo?.gender === 'M' ? '남성' : userInfo?.gender === 'F' ? '여성' : undefined} />
             </div>
 
@@ -226,7 +219,7 @@ export default function MyPage() {
               { label: '이름', name: 'name', type: 'text' },
               { label: '이메일', name: 'email', type: 'email' },
               { label: '연락처', name: 'phone', type: 'tel' },
-              { label: '생년월일', name: 'birth', type: 'text' },
+              { label: '생년월일', name: 'birth', type: 'date' },
             ].map(({ label, name, type }) => (
               <div key={name} className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
