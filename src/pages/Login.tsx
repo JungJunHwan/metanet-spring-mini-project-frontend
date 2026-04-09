@@ -19,7 +19,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await axios.post('/bike/auth/login', form)
+      const { data } = await axios.post('/bike/users/login', form)
       localStorage.setItem('token', data.token)
       localStorage.setItem('userId', data.userId)
       navigate('/')

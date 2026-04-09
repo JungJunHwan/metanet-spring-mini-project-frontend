@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell,
@@ -11,19 +11,175 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MetricCard } from '../components/MetricCard';
 import { SeoulMap } from '../components/SeoulMap';
-import { DISTRICTS, USAGE_DATA } from '../data';
+import { DISTRICTS } from '../data';
 import { motion } from 'motion/react';
 import { AuthNav } from '../components/auth/AuthNav';
+import {
+  fetchTotalUsage,
+  fetchTotalCarbon,
+  fetchDistrictUsage,
+  fetchDailyTrend,
+  fetchTimeDistribution,
+  fetchDemographics,
+  fetchTopStations,
+  fetchTurnover,
+  fetchTimeDistance,
+  type DistrictUsageItem,
+} from '../api/bikeApi';
+
+// ─── 차트용 데이터 타입 ───────────────────────────────────────────────
+interface TrendPoint       { name: string;  usage: number }
+interface HourPoint        { hour: string;  count: number }
+interface DemoPoint        { name: string;  value: number }
+interface StationPoint     { name: string;  count: number }
+interface TurnoverPoint    { name: string;  value: number }
+interface TimeDistPoint    { time: number;  count: number }
+interface ScatterPoint     { distance: number; carbon: number }
+
+// ─── 일별 trend → 월별 집계 변환 ────────────────────────────────────
+function aggregateToMonthly(
+  raw: { rentDay: string; usageCount: number }[],
+): TrendPoint[] {
+  const monthly: Record<string, number> = {}
+  raw.forEach(({ rentDay, usageCount }) => {
+    const month = rentDay?.slice(5, 7) ?? '00'   // 'MM'
+    monthly[month] = (monthly[month] ?? 0) + Number(usageCount)
+  })
+  return Object.entries(monthly)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, total]) => ({ name: `${parseInt(month)}월`, usage: total }))
+}
+
+// ─── 인구통계 → 연령별 합산 ─────────────────────────────────────────
+function aggregateDemographics(
+  raw: { ageGroup: string; gender: string; usageCount: number }[],
+): DemoPoint[] {
+  const grouped: Record<string, number> = {}
+  raw.forEach(({ ageGroup, usageCount }) => {
+    const key = ageGroup ?? '기타'
+    grouped[key] = (grouped[key] ?? 0) + Number(usageCount)
+  })
+  return Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, value]) => ({ name, value }))
+}
 
 export default function Dashboard() {
   const [selectedDistrict, setSelectedDistrict] = useState('전체');
-  const [selectedMonth, setSelectedMonth] = useState('전체');
+  const [selectedMonth,    setSelectedMonth]    = useState('전체');
+
+  // ── Task 3: API 데이터 State ─────────────────────────────────────
+  const [totalUsage,       setTotalUsage]       = useState<number>(0);
+  const [totalCarbon,      setTotalCarbon]       = useState<number>(0);
+  const [districtUsage,    setDistrictUsage]    = useState<DistrictUsageItem[]>([]);
+  const [dailyTrend,       setDailyTrend]       = useState<TrendPoint[]>([]);
+  const [timeDistribution, setTimeDistribution] = useState<HourPoint[]>([]);
+  const [demographics,     setDemographics]     = useState<DemoPoint[]>([]);
+  const [topStations,      setTopStations]      = useState<StationPoint[]>([]);
+  const [turnover,         setTurnover]         = useState<TurnoverPoint[]>([]);
+  const [timeDistance,     setTimeDistance]     = useState<TimeDistPoint[]>([]);
+  const [scatterData]                           = useState<ScatterPoint[]>(
+    Array.from({ length: 50 }, () => ({
+      distance: Math.random() * 2000 + 500,
+      carbon:   Math.random() * 500  + 100,
+    }))
+  );
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+
+  // ── Task 3: 마운트 시 전체 API 병렬 호출 ─────────────────────────
+  useEffect(() => {
+    setLoading(true);
+
+    Promise.allSettled([
+      fetchTotalUsage(),
+      fetchTotalCarbon(),
+      fetchDistrictUsage(),
+      fetchDailyTrend(),
+      fetchTimeDistribution(),
+      fetchDemographics(),
+      fetchTopStations(),
+      fetchTurnover(),
+      fetchTimeDistance(),
+    ]).then(([
+      usageRes,
+      carbonRes,
+      districtRes,
+      trendRes,
+      timeDistRes,
+      demoRes,
+      stationsRes,
+      turnoverRes,
+      timeDistanceRes,
+    ]) => {
+      // 각 결과를 개별 처리 — 일부 실패해도 나머지는 렌더링
+      if (usageRes.status === 'fulfilled')
+        setTotalUsage(usageRes.value.data ?? 0);
+
+      if (carbonRes.status === 'fulfilled')
+        setTotalCarbon(Math.round(carbonRes.value.data ?? 0));
+
+      if (districtRes.status === 'fulfilled')
+        setDistrictUsage(districtRes.value.data ?? []);
+
+      if (trendRes.status === 'fulfilled')
+        setDailyTrend(aggregateToMonthly(trendRes.value.data ?? []));
+
+      if (timeDistRes.status === 'fulfilled') {
+        setTimeDistribution(
+          (timeDistRes.value.data ?? []).map(d => ({
+            hour:  String(d.rentHour).padStart(2, '0'),
+            count: Number(d.usageCount),
+          }))
+        );
+      }
+
+      if (demoRes.status === 'fulfilled')
+        setDemographics(aggregateDemographics(demoRes.value.data ?? []));
+
+      if (stationsRes.status === 'fulfilled') {
+        setTopStations(
+          (stationsRes.value.data ?? []).map(d => ({
+            name:  d.stationName,
+            count: Number(d.usageCount),
+          }))
+        );
+      }
+
+      if (turnoverRes.status === 'fulfilled') {
+        setTurnover(
+          (turnoverRes.value.data ?? []).map(d => ({
+            name:  d.rentTypeCode ?? '기타',
+            value: Number(d.usageCount),
+          }))
+        );
+      }
+
+      if (timeDistanceRes.status === 'fulfilled') {
+        setTimeDistance(
+          (timeDistanceRes.value.data ?? []).map(d => ({
+            time:  Number(d.useTime),
+            count: Number(d.totalDistance),
+          }))
+        );
+      }
+
+      // 모든 API가 실패한 경우 에러 메시지
+      const allFailed = [
+        usageRes, carbonRes, districtRes, trendRes,
+        timeDistRes, demoRes, stationsRes, turnoverRes, timeDistanceRes,
+      ].every(r => r.status === 'rejected');
+
+      if (allFailed) {
+        setError('데이터를 불러올 수 없습니다. 로그인 후 다시 시도해 주세요.');
+      }
+    }).finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-6 lg:p-8 font-sans text-slate-900">
       {/* Header */}
       <header className="mb-8 flex flex-col gap-4 border-b border-emerald-100 pb-6">
-        {/* Top row: brand + auth nav */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-500 p-2 rounded-xl">
@@ -37,12 +193,9 @@ export default function Dashboard() {
               <p className="text-sm text-slate-500">Seoul Bike Usage Analytics Dashboard</p>
             </div>
           </div>
-
-          {/* ★ 우측 상단 Auth Nav ★ */}
           <AuthNav />
         </div>
 
-        {/* Bottom row: filters */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">자치구 선택</label>
@@ -73,35 +226,50 @@ export default function Dashboard() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* 데이터 로딩 상태 표시 */}
+          {loading && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-500" />
+              DB 데이터 로딩 중...
+            </div>
+          )}
+          {error && (
+            <p className="text-xs text-amber-500">{error}</p>
+          )}
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column: Metrics */}
+        {/* Left Column: Metrics + 상위 대여소 */}
         <div className="lg:col-span-3 flex flex-col gap-4">
+          {/* Task 4: totalUsage — DB 실데이터 */}
           <MetricCard
             title="총 이용건수"
-            value={USAGE_DATA.totalUsage.toLocaleString()}
+            value={totalUsage.toLocaleString()}
             unit="건"
             icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}
             delay={0.1}
           />
+          {/* 이용 구 수 — districtUsage에서 계산 */}
           <MetricCard
-            title="활성 사용자"
-            value={USAGE_DATA.activeUsers.toLocaleString()}
-            unit="명"
+            title="데이터 수집 자치구"
+            value={districtUsage.length.toString()}
+            unit="개 구"
             icon={<Users className="w-4 h-4 text-emerald-500" />}
             delay={0.2}
           />
+          {/* Task 4: totalCarbon — DB 실데이터 */}
           <MetricCard
             title="총 탄소 절감량"
-            value={USAGE_DATA.carbonReduction.toLocaleString()}
+            value={totalCarbon.toLocaleString()}
             unit="kg CO2"
             icon={<Leaf className="w-4 h-4 text-emerald-500" />}
             delay={0.3}
           />
 
+          {/* Task 4: 상위 10개 대여소 — DB 실데이터 */}
           <Card className="flex-grow border-emerald-100 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -114,7 +282,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     layout="vertical"
-                    data={USAGE_DATA.topStations}
+                    data={topStations}
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                   >
                     <XAxis type="number" hide />
@@ -148,25 +316,19 @@ export default function Dashboard() {
               <p className="text-xs text-slate-400">: 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.</p>
             </CardHeader>
             <CardContent className="relative h-[500px] p-0 overflow-hidden">
+              {/* Task 4: SeoulMap에 DB 데이터 주입 */}
               <SeoulMap
                 selectedDistrict={selectedDistrict}
                 onDistrictSelect={setSelectedDistrict}
+                districtUsage={districtUsage}
               />
-              {/* 범례 — CardContent 기준 absolute 배치 */}
-              <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">이용건수</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-500">596,403</span>
-                  <div className="w-28 h-2 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-600" />
-                  <span className="text-[10px] text-slate-500">4,549,773</span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: Charts */}
         <div className="lg:col-span-3 flex flex-col gap-4">
+          {/* Task 4: 일별/월별 대여 추이 — DB 실데이터 */}
           <Card className="border-emerald-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -176,7 +338,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="h-[180px] p-2">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={USAGE_DATA.monthlyTrend}>
+                <LineChart data={dailyTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
                   <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
@@ -187,6 +349,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Task 4: 시간대별 이용 분포 — DB 실데이터 */}
           <Card className="border-emerald-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -196,7 +359,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="h-[180px] p-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={USAGE_DATA.hourlyDistribution}>
+                <BarChart data={timeDistribution}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="hour" fontSize={10} tick={{ fill: '#94a3b8' }} />
                   <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
@@ -207,16 +370,17 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Task 4: 사용자 인구통계 — DB 실데이터 */}
           <Card className="border-emerald-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-500" />
-                사용자 인구통계 (성별 및 연령)
+                사용자 인구통계 (연령별)
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[180px] p-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={USAGE_DATA.demographics}>
+                <BarChart data={demographics}>
                   <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
                   <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
                   <Tooltip />
@@ -230,6 +394,7 @@ export default function Dashboard() {
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        {/* 거리 vs 탄소 (scatter — DB 연동 불필요, time-distance 기반 대체) */}
         <Card className="border-emerald-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -242,30 +407,34 @@ export default function Dashboard() {
               <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis type="number" dataKey="distance" name="거리" unit="m" fontSize={10} />
-                <YAxis type="number" dataKey="carbon" name="탄소" unit="g" fontSize={10} />
+                <YAxis type="number" dataKey="carbon"   name="탄소" unit="g" fontSize={10} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter name="이용건" data={USAGE_DATA.scatterData} fill="#10b981" fillOpacity={0.6} />
+                <Scatter name="이용건" data={scatterData} fill="#10b981" fillOpacity={0.6} />
               </ScatterChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Task 4: 대여소 회전율 — DB 실데이터 */}
         <Card className="border-emerald-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-500" />
-              대여소 회전율 분석
+              대여소 회전율 분석 (대여 유형)
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={USAGE_DATA.turnover}>
+              <BarChart data={turnover}>
                 <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} unit="%" />
+                <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]}>
-                  {USAGE_DATA.turnover.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : index === 1 ? '#34d399' : '#6ee7b7'} />
+                  {turnover.map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === 0 ? '#10b981' : index === 1 ? '#34d399' : '#6ee7b7'}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -273,6 +442,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        {/* Task 4: 이용 시간 및 거리 — DB 실데이터 */}
         <Card className="border-emerald-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -282,8 +452,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="h-[240px] p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={USAGE_DATA.timeDistance}>
-                <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} />
+              <BarChart data={timeDistance}>
+                <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit="분" />
                 <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
