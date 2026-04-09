@@ -104,8 +104,8 @@ export default function Signup() {
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all bg-white"
             >
               <option value="">선택</option>
-              <option value="MALE">남성</option>
-              <option value="FEMALE">여성</option>
+              <option value="M">남성</option>
+              <option value="F">여성</option>
             </select>
           </div>
 

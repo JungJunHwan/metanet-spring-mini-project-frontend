@@ -1,35 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
+import axios from 'axios'
 import { geoMercator, geoPath } from 'd3-geo'
 import type { GeoPermissibleObjects, ExtendedFeature } from 'd3-geo'
+import type { DistrictUsageItem } from '../api/bikeApi'
 
 /**
  * 서울시 자치구 경계 GeoJSON (southkorea/seoul-maps, kostat 2013)
- * TopoJSON 대신 GeoJSON을 직접 fetch → topojson-client 의존성 제거 (Vite 8 rolldown 호환)
  */
 const GEO_URL =
   'https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo.json'
-
-// 자치구별 모의 이용건수 (색상 강도 계산용)
-const USAGE: Record<string, number> = {
-  강남구: 4549773, 송파구: 3812450, 마포구: 3201340, 영등포구: 2987650,
-  서초구: 2745320, 관악구: 2512780, 강서구: 2389560, 성동구: 2156890,
-  용산구: 2034560, 광진구: 1923450, 동작구: 1812340, 은평구: 1745670,
-  노원구: 1698230, 중구: 1587650, 강동구: 1534560, 서대문구: 1423780,
-  동대문구: 1312450, 성북구: 1256780, 종로구: 1198650, 강북구: 1087540,
-  구로구: 1023450, 양천구: 987650,  중랑구: 865430,  도봉구: 756340,
-  금천구: 596403,
-}
-const MAX_USAGE = Math.max(...Object.values(USAGE))
-
-function usageColor(name: string, selected: boolean): string {
-  if (selected) return '#10b981'        // emerald-500
-  const ratio = (USAGE[name] ?? 0) / MAX_USAGE
-  if (ratio > 0.8) return '#34d399'    // emerald-400
-  if (ratio > 0.6) return '#6ee7b7'    // emerald-300
-  if (ratio > 0.4) return '#a7f3d0'    // emerald-200
-  if (ratio > 0.2) return '#d1fae5'    // emerald-100
-  return '#ecfdf5'                      // emerald-50
-}
 
 // SVG 뷰박스 크기
 const W = 800
@@ -38,19 +17,44 @@ const H = 500
 interface Props {
   selectedDistrict: string
   onDistrictSelect: (district: string) => void
+  /** Task 4: DB에서 받아온 자치구별 이용건수 데이터 */
+  districtUsage?: DistrictUsageItem[]
 }
 
 interface GeoFeature extends ExtendedFeature {
   properties: { name?: string; NAME_KOR?: string; SIG_KOR_NM?: string } | null
 }
 
-export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
-  const [features, setFeatures] = useState<GeoFeature[]>([])
-  const [hovered, setHovered] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+/**
+ * DB 데이터 기반 색상 계산
+ * - usageMap: 구 이름 → 이용건수 (DB에서 받아온 동적 데이터)
+ * - maxUsage: 전체 구 중 최대 이용건수
+ * - 이용량이 많을수록 짙은 녹색 (5단계 분기)
+ */
+function buildColorFn(
+  usageMap: Record<string, number>,
+  maxUsage: number,
+): (name: string, selected: boolean) => string {
+  return (name, selected) => {
+    if (selected) return '#10b981'           // emerald-500 (선택된 구)
+    if (maxUsage === 0) return '#ecfdf5'     // 데이터 없으면 최소 색상
+    const ratio = (usageMap[name] ?? 0) / maxUsage
+    if (ratio > 0.8) return '#059669'        // emerald-600 (최고)
+    if (ratio > 0.6) return '#34d399'        // emerald-400
+    if (ratio > 0.4) return '#6ee7b7'        // emerald-300
+    if (ratio > 0.2) return '#a7f3d0'        // emerald-200
+    if (ratio > 0)   return '#d1fae5'        // emerald-100
+    return '#ecfdf5'                         // emerald-50 (데이터 없는 구)
+  }
+}
 
-  // d3-geo 프로젝션 — 서울 중심 메르카토르
+export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [] }: Props) {
+  const [features, setFeatures] = useState<GeoFeature[]>([])
+  const [hovered, setHovered]   = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(false)
+
+  // ── d3-geo 프로젝션 — 서울 중심 메르카토르
   const pathGen = useMemo(() => {
     const proj = geoMercator()
       .center([126.986, 37.561])
@@ -59,19 +63,33 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
     return geoPath(proj)
   }, [])
 
+  // ── GeoJSON 로드 (axios — XHR 기반 AJAX, bikeApi.ts 동일 라이브러리 통일)
   useEffect(() => {
-    fetch(GEO_URL)
-      .then(r => {
-        if (!r.ok) throw new Error('network error')
-        return r.json()
-      })
-      .then(data => {
-        const feats: GeoFeature[] = data.features ?? []
-        setFeatures(feats)
-      })
+    axios.get<{ features: GeoFeature[] }>(GEO_URL)
+      .then(res => setFeatures(res.data.features ?? []))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [])
+
+  // ── Task 4: DB 데이터 → Record<string, number> 변환
+  // GeoJSON의 구 이름(예: '강남구')과 DB district 값을 매칭
+  const { usageMap, maxUsage, minUsage } = useMemo(() => {
+    if (districtUsage.length === 0) return { usageMap: {}, maxUsage: 0, minUsage: 0 }
+    const map: Record<string, number> = {}
+    districtUsage.forEach(({ district, usageCount }) => {
+      // DB 값이 '강남구 ' 처럼 공백을 포함할 수 있으므로 trim() 처리
+      map[district.trim()] = Number(usageCount)
+    })
+    const values = Object.values(map)
+    return {
+      usageMap: map,
+      maxUsage: Math.max(...values),
+      minUsage: Math.min(...values),
+    }
+  }, [districtUsage])
+
+  // ── 동적 색상 함수 생성
+  const getColor = useMemo(() => buildColorFn(usageMap, maxUsage), [usageMap, maxUsage])
 
   if (loading) {
     return (
@@ -99,9 +117,9 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
         <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2 select-none rounded-lg bg-slate-800/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
           {hovered}
-          {USAGE[hovered] && (
+          {usageMap[hovered] != null && (
             <span className="font-normal text-emerald-300">
-              &nbsp;— {USAGE[hovered].toLocaleString()}건
+              &nbsp;— {usageMap[hovered].toLocaleString()}건
             </span>
           )}
         </div>
@@ -119,7 +137,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
             feature.properties?.SIG_KOR_NM ??
             ''
           const isSelected = selectedDistrict === name
-          const isHovered = hovered === name
+          const isHovered  = hovered === name
           const d = pathGen(feature as GeoPermissibleObjects)
           if (!d) return null
 
@@ -127,7 +145,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
             <path
               key={idx}
               d={d}
-              fill={usageColor(name, isSelected)}
+              fill={getColor(name, isSelected)}
               stroke="#ffffff"
               strokeWidth={isSelected || isHovered ? 2 : 1.2}
               style={{
@@ -177,6 +195,18 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect }: Props) {
           )
         })}
       </svg>
+
+      {/* 범례: DB 데이터 최솟값~최댓값 표시 */}
+      {maxUsage > 0 && (
+        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">이용건수</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-500">{minUsage.toLocaleString()}</span>
+            <div className="w-28 h-2 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-600" />
+            <span className="text-[10px] text-slate-500">{maxUsage.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
