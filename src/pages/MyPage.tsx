@@ -8,29 +8,28 @@ interface UserInfo {
   name: string
   email: string
   phone: string
-  birthDate: string
+  birth: string        // 백엔드 UserResDto 필드명 그대로
   gender: string
-  profileImage?: string | number[] | null
+  profileImage?: string | null
 }
 
 interface FormState {
   name: string
   email: string
   phone: string
-  birthDate: string
+  birth: string        // 백엔드 UserUpdateReqDto 필드명 그대로
   gender: string
   password: string
 }
 
 function resolveProfileImage(data: UserInfo['profileImage']): string | null {
   if (!data) return null
+  // 백엔드가 "/bike/users/{id}/profile-image" URL 경로를 내려줄 때 → 그대로 src 로 사용
+  if (typeof data === 'string' && (data.startsWith('/') || data.startsWith('http'))) return data
+  // 이미 완성된 Data URI 인 경우
   if (typeof data === 'string' && data.startsWith('data:')) return data
+  // raw base64 문자열인 경우
   if (typeof data === 'string') return `data:image/jpeg;base64,${data}`
-  if (Array.isArray(data)) {
-    const bytes = new Uint8Array(data)
-    const binary = bytes.reduce((acc, b) => acc + String.fromCharCode(b), '')
-    return `data:image/jpeg;base64,${btoa(binary)}`
-  }
   return null
 }
 
@@ -50,7 +49,7 @@ export default function MyPage() {
 
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [editMode, setEditMode] = useState(false)
-  const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birthDate: '', gender: '', password: '' })
+  const [form, setForm] = useState<FormState>({ name: '', email: '', phone: '', birth: '', gender: '', password: '' })
   const [newImage, setNewImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,7 +63,7 @@ export default function MyPage() {
     try {
       const { data } = await axios.get<UserInfo>(`/bike/users/${userId}`, { headers: authHeader })
       setUserInfo(data)
-      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birthDate: data.birthDate ?? '', gender: data.gender ?? '', password: '' })
+      setForm({ name: data.name ?? '', email: data.email ?? '', phone: data.phone ?? '', birth: data.birth ?? '', gender: data.gender ?? '', password: '' })
     } catch {
       setError('사용자 정보를 불러오는 데 실패했습니다.')
     } finally {
@@ -169,8 +168,8 @@ export default function MyPage() {
             <div className="mb-6">
               <InfoRow label="이메일" value={userInfo?.email} />
               <InfoRow label="연락처" value={userInfo?.phone} />
-              <InfoRow label="생년월일" value={userInfo?.birthDate} />
-              <InfoRow label="성별" value={userInfo?.gender === 'MALE' ? '남성' : userInfo?.gender === 'FEMALE' ? '여성' : undefined} />
+              <InfoRow label="생년월일" value={userInfo?.birth ? new Date(userInfo.birth).toLocaleDateString('ko-KR') : undefined} />
+              <InfoRow label="성별" value={userInfo?.gender === 'M' ? '남성' : userInfo?.gender === 'F' ? '여성' : undefined} />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -200,7 +199,7 @@ export default function MyPage() {
               { label: '이름', name: 'name', type: 'text' },
               { label: '이메일', name: 'email', type: 'email' },
               { label: '연락처', name: 'phone', type: 'tel' },
-              { label: '생년월일', name: 'birthDate', type: 'date' },
+              { label: '생년월일', name: 'birth', type: 'date' },
             ].map(({ label, name, type }) => (
               <div key={name} className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -223,8 +222,8 @@ export default function MyPage() {
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 bg-white"
               >
                 <option value="">선택</option>
-                <option value="MALE">남성</option>
-                <option value="FEMALE">여성</option>
+                <option value="M">남성</option>
+                <option value="F">여성</option>
               </select>
             </div>
 

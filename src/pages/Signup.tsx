@@ -68,7 +68,8 @@ export default function Signup() {
       alert('회원가입이 완료되었습니다!')
       navigate('/login')
     } catch (err: any) {
-      setError(err.response?.data?.message || '회원가입 중 오류가 발생했습니다.')
+      // GlobalExceptionHandler 가 plain text(HTTP 400)를 반환하므로 .data 를 직접 사용
+      setError(err.response?.data || '회원가입 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
