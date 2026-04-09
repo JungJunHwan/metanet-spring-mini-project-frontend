@@ -12,14 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MetricCard } from '../components/MetricCard';
 import { SeoulMap } from '../components/SeoulMap';
 import { DISTRICTS } from '../data';
-import { motion } from 'motion/react';
 import { AuthNav } from '../components/auth/AuthNav';
 import {
   fetchTotalUsage,
   fetchTotalCarbon,
   fetchDistrictUsage,
   fetchDailyTrend,
-  fetchTimeDistribution,
   fetchDemographics,
   fetchTopStations,
   fetchTurnover,
@@ -29,7 +27,6 @@ import {
 
 // ─── 차트용 데이터 타입 ───────────────────────────────────────────────
 interface TrendPoint       { name: string;  usage: number }
-interface HourPoint        { hour: string;  count: number }
 interface DemoPoint        { name: string;  value: number }
 interface StationPoint     { name: string;  count: number }
 interface TurnoverPoint    { name: string;  value: number }
@@ -73,7 +70,6 @@ export default function Dashboard() {
   const [totalCarbon,      setTotalCarbon]       = useState<number>(0);
   const [districtUsage,    setDistrictUsage]    = useState<DistrictUsageItem[]>([]);
   const [dailyTrend,       setDailyTrend]       = useState<TrendPoint[]>([]);
-  const [timeDistribution, setTimeDistribution] = useState<HourPoint[]>([]);
   const [demographics,     setDemographics]     = useState<DemoPoint[]>([]);
   const [topStations,      setTopStations]      = useState<StationPoint[]>([]);
   const [turnover,         setTurnover]         = useState<TurnoverPoint[]>([]);
@@ -101,7 +97,7 @@ export default function Dashboard() {
 
     setLoading(true);
     let completedCount = 0;
-    const totalRequests = 9;
+    const totalRequests = 8;
 
     const checkAllFinished = () => {
       completedCount++;
@@ -140,21 +136,7 @@ export default function Dashboard() {
       .catch(ignoreAbort(() => {}))
       .finally(checkAllFinished);
 
-    // 5. 시간대별 분포
-    fetchTimeDistribution(signal)
-      .then(res => {
-        if (!mountedRef.current) return;
-        setTimeDistribution(
-          (res.data ?? []).map(d => ({
-            hour: String(d.rentHour).padStart(2, '0'),
-            count: Number(d.usageCount),
-          }))
-        );
-      })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
-
-    // 6. 인구통계
+    // 5. 인구통계
     fetchDemographics(signal)
       .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [])) })
       .catch(ignoreAbort(() => {}))
@@ -301,8 +283,53 @@ export default function Dashboard() {
             delay={0.3}
           />
 
-          {/* Task 4: 상위 10개 대여소 — DB 실데이터 */}
-          <Card className="flex-grow border-emerald-100 overflow-hidden">
+          {/* 일별/월별 대여 추이 — 우측에서 이동 */}
+          <Card className="flex-grow border-emerald-100">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-emerald-500" />
+                일별/월별 대여 추이
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-[180px] p-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                  <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Center Column: Map */}
+        <div className="lg:col-span-6 flex flex-col gap-4">
+          <Card className="flex-grow border-emerald-100 bg-white shadow-sm">
+            <CardHeader className="pb-0">
+              <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-emerald-500" />
+                자치구별 이용 현황
+              </CardTitle>
+              <p className="text-xs text-slate-400">: 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.</p>
+            </CardHeader>
+            <CardContent className="relative h-[500px] p-0 overflow-hidden">
+              {/* Task 4: SeoulMap에 DB 데이터 주입 */}
+              <SeoulMap
+                selectedDistrict={selectedDistrict}
+                onDistrictSelect={setSelectedDistrict}
+                districtUsage={districtUsage}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Charts */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          {/* 상위 10개 대여소 — 좌측에서 이동 */}
+          <Card className="border-emerald-100 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-emerald-500" />
@@ -335,74 +362,8 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Center Column: Map */}
-        <div className="lg:col-span-6 flex flex-col gap-4">
-          <Card className="flex-grow border-emerald-100 bg-white shadow-sm">
-            <CardHeader className="pb-0">
-              <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-500" />
-                자치구별 이용 현황
-              </CardTitle>
-              <p className="text-xs text-slate-400">: 지도를 클릭하시면, 자치구별 현황을 확인하실 수 있어요.</p>
-            </CardHeader>
-            <CardContent className="relative h-[500px] p-0 overflow-hidden">
-              {/* Task 4: SeoulMap에 DB 데이터 주입 */}
-              <SeoulMap
-                selectedDistrict={selectedDistrict}
-                onDistrictSelect={setSelectedDistrict}
-                districtUsage={districtUsage}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Charts */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
-          {/* Task 4: 일별/월별 대여 추이 — DB 실데이터 */}
-          <Card className="border-emerald-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-emerald-500" />
-                일별/월별 대여 추이
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[180px] p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Task 4: 시간대별 이용 분포 — DB 실데이터 */}
-          <Card className="border-emerald-100">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-500" />
-                시간대별 이용 분포
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[180px] p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={timeDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="hour" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Task 4: 사용자 인구통계 — DB 실데이터 */}
+          {/* 사용자 인구통계 — DB 실데이터 */}
           <Card className="border-emerald-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
