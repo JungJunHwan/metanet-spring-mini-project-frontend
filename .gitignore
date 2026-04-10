@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude AI 관련 설정 파일 및 캐시 제외
+.claude/
