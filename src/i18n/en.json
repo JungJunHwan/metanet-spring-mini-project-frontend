@@ -20,7 +20,7 @@
     "districts": "Districts Collected",
     "districtsUnit": "districts",
     "carbon": "Total Carbon Saved",
-    "carbonUnit": "kg CO2"
+    "carbonUnit": "g CO2"
   },
   "chart": {
     "mapTitle": "Usage by District",

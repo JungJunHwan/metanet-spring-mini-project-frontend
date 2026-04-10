@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell, LabelList,
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
@@ -35,7 +35,7 @@ interface DemoPoint        { name: string;  value: number }
 interface StationPoint     { name: string;  count: number }
 interface TurnoverPoint    { name: string;  value: number }
 interface TimeDistPoint    { time: number;  count: number }
-interface ScatterPoint     { distance: number; carbon: number }
+interface ScatterPoint     { distance: number; carbon: number; weight?: number }
 
 // ─── 일별 trend → 월별 집계 변환 ────────────────────────────────────
 function aggregateToMonthly(
@@ -253,10 +253,25 @@ export default function Dashboard() {
         .catch(ignoreAbort(() => {})),
 
       // 9. 거리 vs 탄소 절감량
-      fetchDistanceCarbon(district, month, signal)
-        .then(res => {
-          if (mountedRef.current) setScatterData(res.data ?? []);
-        })
+        fetchDistanceCarbon(district, month, signal)
+          .then(res => {
+            if (mountedRef.current) {
+              const mapped = (res.data ?? [])
+                .filter((d: any) => d.distance != null && d.carbon != null)
+                .map((d: any) => ({
+                  distance: Number(d.distance),
+                  carbon: Number(d.carbon),
+                  weight: Number(d.weight || 1)
+                }));
+                
+              // DOM 렌더링 과부하 방지를 위해 가중치(중복 수)가 높은 상위 500개의 포인트만 렌더링
+              const sampledData = mapped
+                .sort((a, b) => b.weight - a.weight)
+                .slice(0, 500);
+
+              setScatterData(sampledData);
+            }
+          })
         .catch(ignoreAbort(() => {
           if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
         })),
@@ -547,6 +562,7 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
                       <YAxis type="number" dataKey="carbon"   name={t('chart.scatterY')} unit="g" fontSize={10} />
+                      <ZAxis type="number" dataKey="weight" range={[20, 200]} name="Count" />
                       <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                       <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
                     </ScatterChart>
