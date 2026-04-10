@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, Cell,
+  ScatterChart, Scatter, Cell, LabelList,
 } from 'recharts';
 import {
   Bike, Users, Leaf, MapPin, Calendar as CalendarIcon,
@@ -108,6 +108,17 @@ function CustomYAxisTick({ x = 0, y = 0, payload }: CustomTickProps) {
     </g>
   );
 }
+
+// ─── 탭별 고정 항목 / 색상 (컴포넌트 외부 상수) ──────────────────────
+// 값이 0이어도 항목이 표시되도록 순서까지 고정
+const DAILY_ITEMS  = ['일일권', '일일권(비회원)', '일일권(비회원 3시간)'] as const;
+const FAMILY_ITEMS = ['가족권', '가족권(2시간)', '가족권(3시간)']        as const;
+
+const TAB_COLORS: Record<string, string[]> = {
+  ALL:    ['#059669', '#0891b2', '#7c3aed'],   // 에메랄드 · 청록 · 보라
+  DAILY:  ['#0891b2', '#06b6d4', '#22d3ee'],   // 청록 계열 3단계
+  FAMILY: ['#7c3aed', '#8b5cf6', '#a78bfa'],   // 보라 계열 3단계
+};
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -250,6 +261,33 @@ export default function Dashboard() {
     // 클린업: 컴포넌트 언마운트 또는 의존성 변경 시 이전 요청 즉시 중단
     return () => { controller.abort(); };
   }, [selectedDistrict, selectedMonth]);
+
+  // ── 탭 State ─────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'ALL' | 'DAILY' | 'FAMILY'>('ALL');
+
+  // ── 탭별 차트 데이터 가공 ─────────────────────────────────────────
+  // ALL   : 정기권 / 일일권 합계 / 가족권 합계 (reduce)
+  // DAILY : DAILY_ITEMS 순서 고정 — 값 0이어도 항목 유지
+  // FAMILY: FAMILY_ITEMS 순서 고정 — 값 0이어도 항목 유지
+  const tabChartData = useMemo(() => {
+    const find  = (name: string) => turnover.find(d => d.name === name)?.value ?? 0;
+    const sumBy = (prefix: string) =>
+      turnover.filter(d => d.name.startsWith(prefix)).reduce((s, d) => s + d.value, 0);
+
+    if (activeTab === 'DAILY')  return [...DAILY_ITEMS].map(name  => ({ name, value: find(name) }));
+    if (activeTab === 'FAMILY') return [...FAMILY_ITEMS].map(name => ({ name, value: find(name) }));
+    return [
+      { name: '정기권',     value: sumBy('정기권') },
+      { name: '일일권 합계', value: sumBy('일일권') },
+      { name: '가족권 합계', value: sumBy('가족권') },
+    ];
+  }, [turnover, activeTab]);
+
+  // LabelList 비율(%) 계산용 전체 합계
+  const tabTotal = useMemo(
+    () => tabChartData.reduce((s, d) => s + d.value, 0),
+    [tabChartData],
+  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-6 lg:p-8 font-sans text-slate-900">
@@ -468,27 +506,75 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Task 4: 대여소 회전율 — DB 실데이터 */}
+        {/* 대여소 회전율 — 탭 전환 BarChart */}
         <Card className="border-emerald-100">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-500" />
-              {t('chart.turnover')}
-            </CardTitle>
+          <CardHeader className="pb-1">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2 shrink-0">
+                <BarChart3 className="w-4 h-4 text-emerald-500" />
+                {t('chart.turnover')}
+              </CardTitle>
+              {/* 탭 버튼 그룹 */}
+              <div className="flex gap-1">
+                {(['ALL', 'DAILY', 'FAMILY'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-colors whitespace-nowrap ${
+                      activeTab === tab
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {tab === 'ALL' ? '전체 보기' : tab === 'DAILY' ? '일일권 상세' : '가족권 상세'}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="h-[240px] p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={turnover}>
-                <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]}>
-                  {turnover.map((_, index) => (
+              <BarChart
+                data={tabChartData}
+                margin={{ top: 28, right: 8, left: -10, bottom: 48 }}
+              >
+                <XAxis
+                  dataKey="name"
+                  fontSize={9}
+                  tick={{ fill: '#94a3b8', angle: -20, textAnchor: 'end' }}
+                  height={48}
+                  interval={0}
+                />
+                <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} />
+                <Tooltip
+                  formatter={(v: number) => [v.toLocaleString() + '건', '이용건수']}
+                />
+                <Bar
+                  dataKey="value"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
+                >
+                  {tabChartData.map((_, idx) => (
                     <Cell
-                      key={`cell-${index}`}
-                      fill={index === 0 ? '#10b981' : index === 1 ? '#34d399' : '#6ee7b7'}
+                      key={`cell-${idx}`}
+                      fill={(TAB_COLORS[activeTab] ?? TAB_COLORS.ALL)[idx] ?? '#10b981'}
                     />
                   ))}
+                  {/* 막대 위 수치 + 비율 라벨 */}
+                  <LabelList
+                    dataKey="value"
+                    position="top"
+                    fontSize={8}
+                    fill="#475569"
+                    formatter={(v: unknown) => {
+                      const n   = Number(v);
+                      const pct = tabTotal > 0 ? Math.round((n / tabTotal) * 100) : 0;
+                      const num = n >= 10000
+                        ? `${(n / 10000).toFixed(1)}만`
+                        : n.toLocaleString();
+                      return `${num} (${pct}%)`;
+                    }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
