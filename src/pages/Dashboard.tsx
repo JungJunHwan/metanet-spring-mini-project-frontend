@@ -4,6 +4,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell,
 } from 'recharts';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Bike, Users, Leaf, MapPin, Calendar as CalendarIcon,
   Clock, TrendingUp, BarChart3, PieChart, Activity,
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MetricCard } from '../components/MetricCard';
 import { SeoulMap } from '../components/SeoulMap';
+import { Skeleton } from '../components/ui/Skeleton';
 import { DISTRICTS } from '../data';
 import { AuthNav } from '../components/auth/AuthNav';
 import {
@@ -115,15 +117,15 @@ export default function Dashboard() {
   const [selectedMonth,    setSelectedMonth]    = useState('전체');
 
   // ── Task 3: API 데이터 State ─────────────────────────────────────
-  const [totalUsage,       setTotalUsage]       = useState<number>(0);
-  const [totalCarbon,      setTotalCarbon]       = useState<number>(0);
-  const [districtUsage,    setDistrictUsage]    = useState<DistrictUsageItem[]>([]);
-  const [dailyTrend,       setDailyTrend]       = useState<TrendPoint[]>([]);
-  const [demographics,     setDemographics]     = useState<DemoPoint[]>([]);
-  const [topStations,      setTopStations]      = useState<StationPoint[]>([]);
-  const [turnover,         setTurnover]         = useState<TurnoverPoint[]>([]);
-  const [timeDistance,     setTimeDistance]     = useState<TimeDistPoint[]>([]);
-  const [scatterData,    setScatterData]    = useState<ScatterPoint[]>([]);
+  const [totalUsage,       setTotalUsage]       = useState<number | null>(null);
+  const [totalCarbon,      setTotalCarbon]       = useState<number | null>(null);
+  const [districtUsage,    setDistrictUsage]    = useState<DistrictUsageItem[] | null>(null);
+  const [dailyTrend,       setDailyTrend]       = useState<TrendPoint[] | null>(null);
+  const [demographics,     setDemographics]     = useState<DemoPoint[] | null>(null);
+  const [topStations,      setTopStations]      = useState<StationPoint[] | null>(null);
+  const [turnover,         setTurnover]         = useState<TurnoverPoint[] | null>(null);
+  const [timeDistance,     setTimeDistance]     = useState<TimeDistPoint[] | null>(null);
+  const [scatterData,    setScatterData]    = useState<ScatterPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -139,8 +141,17 @@ export default function Dashboard() {
     const controller = new AbortController();
     const { signal } = controller;
 
-    setLoading(true);
     setError(null);
+
+    // 필터 변경 시 기존 데이터 null 처리 (스켈레톤 유도)
+    setTotalUsage(null);
+    setTotalCarbon(null);
+    setDailyTrend(null);
+    setDemographics(null);
+    setTopStations(null);
+    setTurnover(null);
+    setTimeDistance(null);
+    setScatterData(null);
 
     // '전체' 선택 시 API에는 undefined 전달 (필터 미적용)
     const district = selectedDistrict === '전체' ? undefined : selectedDistrict;
@@ -240,7 +251,7 @@ export default function Dashboard() {
         })),
     ];
 
-    // 모든 요청이 완료(성공 또는 실패)되면 로딩 해제
+    // 모든 요청이 완료(성공 또는 실패)되면 로딩 해제 (헤더 아이콘용)
     Promise.allSettled(requests).finally(() => {
       if (mountedRef.current && !signal.aborted) {
         setLoading(false);
@@ -317,58 +328,64 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column: Metrics + 상위 대여소 */}
+        {/* Left Column: Metrics + trend */}
         <div className="lg:col-span-3 flex flex-col gap-4">
-          {/* Task 4: totalUsage — DB 실데이터 */}
           <MetricCard
             title={t('metric.totalUsage')}
-            value={totalUsage.toLocaleString()}
+            value={totalUsage?.toLocaleString() ?? '0'}
             unit={t('metric.totalUsageUnit')}
             icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}
-            delay={0.1}
+            isLoading={totalUsage === null}
           />
-          {/* 이용 구 수 — districtUsage에서 계산 */}
           <MetricCard
             title={t('metric.districts')}
-            value={districtUsage.length.toString()}
+            value={districtUsage?.length.toString() ?? '0'}
             unit={t('metric.districtsUnit')}
             icon={<Users className="w-4 h-4 text-emerald-500" />}
-            delay={0.2}
+            isLoading={districtUsage === null}
           />
-          {/* Task 4: totalCarbon — DB 실데이터 */}
           <MetricCard
             title={t('metric.carbon')}
-            value={totalCarbon.toLocaleString()}
+            value={totalCarbon?.toLocaleString() ?? '0'}
             unit={t('metric.carbonUnit')}
             icon={<Leaf className="w-4 h-4 text-emerald-500" />}
-            delay={0.3}
+            isLoading={totalCarbon === null}
           />
 
-          {/* 일별/월별 대여 추이 — 우측에서 이동 */}
-          <Card className="flex-grow border-emerald-100">
+          <Card className="flex-grow border-emerald-100 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-emerald-500" />
                 {t('chart.dailyTrend')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-[180px] p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[180px] p-2 relative">
+              <AnimatePresence mode="wait">
+                {dailyTrend === null ? (
+                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4">
+                    <Skeleton className="w-full h-full" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dailyTrend}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                        <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
         </div>
 
         {/* Center Column: Map */}
         <div className="lg:col-span-6 flex flex-col gap-4">
-          <Card className="flex-grow border-emerald-100 bg-white shadow-sm">
+          <Card className="flex-grow border-emerald-100 bg-white shadow-sm overflow-hidden">
             <CardHeader className="pb-0">
               <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-500" />
@@ -377,19 +394,29 @@ export default function Dashboard() {
               <p className="text-xs text-slate-400">{t('chart.mapHint')}</p>
             </CardHeader>
             <CardContent className="relative h-[500px] p-0 overflow-hidden">
-              {/* Task 4: SeoulMap에 DB 데이터 주입 */}
-              <SeoulMap
-                selectedDistrict={selectedDistrict}
-                onDistrictSelect={setSelectedDistrict}
-                districtUsage={districtUsage}
-              />
+              <AnimatePresence mode="wait">
+                {districtUsage === null ? (
+                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-4/5 h-4/5 bg-slate-50 rounded-full animate-pulse flex items-center justify-center">
+                       <MapPin className="w-12 h-12 text-slate-200" />
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="content" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="h-full w-full">
+                    <SeoulMap
+                      selectedDistrict={selectedDistrict}
+                      onDistrictSelect={setSelectedDistrict}
+                      districtUsage={districtUsage}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: Charts */}
         <div className="lg:col-span-3 flex flex-col gap-4">
-          {/* 상위 10개 대여소 — 좌측에서 이동 */}
           <Card className="border-emerald-100 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -397,49 +424,66 @@ export default function Dashboard() {
                 {t('chart.topStations')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={topStations}
-                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      width={100}
-                      tick={<CustomYAxisTick />}
-                    />
-                    <Tooltip
-                      cursor={{ fill: '#f0fdf4' }}
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #10b981' }}
-                    />
-                    <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <CardContent className="p-0 relative h-[300px]">
+              <AnimatePresence mode="wait">
+                {topStations === null ? (
+                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4 flex flex-col gap-2">
+                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  </motion.div>
+                ) : (
+                  <motion.div key="content" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={topStations}
+                        margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
+                      >
+                        <XAxis type="number" hide />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          width={100}
+                          tick={<CustomYAxisTick />}
+                        />
+                        <Tooltip
+                          cursor={{ fill: '#f0fdf4' }}
+                          contentStyle={{ borderRadius: '8px', border: '1px solid #10b981' }}
+                        />
+                        <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
 
-          {/* 사용자 인구통계 — DB 실데이터 */}
-          <Card className="border-emerald-100">
+          <Card className="border-emerald-100 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-emerald-500" />
                 {t('chart.demographics')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-[180px] p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={demographics}>
-                  <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent className="h-[180px] p-2 relative">
+              <AnimatePresence mode="wait">
+                {demographics === null ? (
+                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4">
+                    <Skeleton className="w-full h-full" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="content" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={demographics}>
+                        <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                        <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
         </div>
@@ -447,71 +491,92 @@ export default function Dashboard() {
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        {/* 거리 vs 탄소 (scatter — DB 연동 불필요, time-distance 기반 대체) */}
-        <Card className="border-emerald-100">
+        <Card className="border-emerald-100 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-500" />
               {t('chart.scatter')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[240px] p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
-                <YAxis type="number" dataKey="carbon"   name={t('chart.scatterY')} unit="g" fontSize={10} />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
-              </ScatterChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[240px] p-2 relative">
+            <AnimatePresence mode="wait">
+              {scatterData === null ? (
+                 <Skeleton className="absolute inset-4" />
+              ) : (
+                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
+                      <YAxis type="number" dataKey="carbon"   name={t('chart.scatterY')} unit="g" fontSize={10} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                      <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
 
-        {/* Task 4: 대여소 회전율 — DB 실데이터 */}
-        <Card className="border-emerald-100">
+        <Card className="border-emerald-100 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-500" />
               {t('chart.turnover')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[240px] p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={turnover}>
-                <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]}>
-                  {turnover.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={index === 0 ? '#10b981' : index === 1 ? '#34d399' : '#6ee7b7'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[240px] p-2 relative">
+            <AnimatePresence mode="wait">
+              {turnover === null ? (
+                <Skeleton className="absolute inset-4" />
+              ) : (
+                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={turnover}>
+                      <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                      <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]}>
+                        {turnover.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={index === 0 ? '#10b981' : index === 1 ? '#34d399' : '#6ee7b7'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
 
-        {/* Task 4: 이용 시간 및 거리 — DB 실데이터 */}
-        <Card className="border-emerald-100">
+        <Card className="border-emerald-100 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <Clock className="w-4 h-4 text-emerald-500" />
               {t('chart.timeDistance')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[240px] p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={timeDistance}>
-                <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit="분" />
-                <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[240px] p-2 relative">
+            <AnimatePresence mode="wait">
+              {timeDistance === null ? (
+                <Skeleton className="absolute inset-4" />
+              ) : (
+                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={timeDistance}>
+                      <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit="분" />
+                      <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
       </div>

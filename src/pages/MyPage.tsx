@@ -84,7 +84,7 @@ export default function MyPage() {
         name: data.name ?? '',
         email: data.email ?? '',
         phone: data.phone ?? '',
-        birth: data.birth ?? '',
+        birth: data.birth ? new Date(data.birth).toISOString().split('T')[0] : '',
         gender: data.gender ?? '',
         password: '',
       })
