@@ -295,7 +295,6 @@ export default function Dashboard() {
     ];
   }, [turnover, activeTab]);
 
-  // LabelList 비율(%) 계산용 전체 합계
   const tabTotal = useMemo(
     () => tabChartData.reduce((s, d) => s + d.value, 0),
     [tabChartData],
