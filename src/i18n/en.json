@@ -39,10 +39,91 @@
     "mypage": "My Page",
     "logout": "Logout",
     "login": "Login",
-    "signup": "Sign Up"
+    "signup": "Sign Up",
+    "activeUsers": "Online: {{count}}"
   },
   "footer": {
     "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
     "source": "Data source: Seoul Open Data Plaza"
+  },
+  "auth": {
+    "brand": "Seoul Bike Dashboard",
+    "login": {
+      "title": "Login",
+      "subtitle": "Sign in to your account to use the dashboard.",
+      "submit": "Login",
+      "submitting": "Logging in...",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Sign Up",
+      "errorDefault": "Please check your ID or password."
+    },
+    "signup": {
+      "title": "Sign Up",
+      "subtitle": "Create a new account to get started.",
+      "submit": "Create Account",
+      "submitting": "Processing...",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Login",
+      "success": "Registration complete!",
+      "errorDefault": "An error occurred during sign up."
+    },
+    "fields": {
+      "id": "ID",
+      "idPlaceholder": "Enter your ID",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "phonePlaceholder": "010-0000-0000",
+      "birth": "Date of Birth",
+      "gender": "Gender",
+      "genderSelect": "Select",
+      "genderMale": "Male",
+      "genderFemale": "Female",
+      "profileImage": "Profile Image",
+      "profileImageChange": "Change Profile Image",
+      "newPassword": "New Password (only if changing)",
+      "imagePreviewAlt": "Preview"
+    },
+    "mypage": {
+      "editButton": "Edit Profile",
+      "logout": "Logout",
+      "withdraw": "Delete Account",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "withdrawConfirm": "Are you sure you want to delete your account? This action cannot be undone.",
+      "updateSuccess": "Profile updated successfully.",
+      "withdrawSuccess": "Your account has been deleted.",
+      "loadError": "Failed to load user information.",
+      "updateError": "An error occurred while updating your profile.",
+      "withdrawError": "An error occurred while deleting your account."
+    }
+  },
+  "dashboard": {
+    "tabs": {
+      "all": "All",
+      "daily": "Daily Pass",
+      "family": "Family Pass"
+    },
+    "turnoverLabels": {
+      "regular": "Monthly Pass",
+      "dailyTotal": "Daily Pass Total",
+      "familyTotal": "Family Pass Total"
+    },
+    "tooltipUnit": " rides",
+    "tooltipLabel": "Rides",
+    "timeUnit": "min",
+    "monthLabel": "Month {{n}}",
+    "dayLabel": "Day {{n}}",
+    "otherLabel": "Other",
+    "dataError": "An error occurred while loading some data."
+  },
+  "map": {
+    "loading": "Loading map...",
+    "error": "Failed to load map data.",
+    "usageUnit": " rides",
+    "legendLabel": "Rides"
   }
 }

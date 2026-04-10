@@ -65,7 +65,7 @@ export function AuthNav() {
         }}
         transition={{ duration: 0.5 }}
         className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-emerald-600 shadow-sm"
-        title={t('nav.activeUsers', { count: userCount }) || `현재 접속자: ${userCount}명`}
+        title={t('nav.activeUsers', { count: userCount })}
       >
         <Users className="h-3.5 w-3.5" />
         <span>{userCount}</span>
