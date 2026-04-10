@@ -36,7 +36,7 @@ function buildColorFn(
   maxUsage: number,
 ): (name: string, selected: boolean) => string {
   return (name, selected) => {
-    if (selected) return '#10b981'           // emerald-500 (선택된 구)
+    if (selected) return '#f43f5e'           // crimson/rose-500 (선택된 구 - 다홍색 강조)
     if (maxUsage === 0) return '#ecfdf5'     // 데이터 없으면 최소 색상
     const ratio = (usageMap[name] ?? 0) / maxUsage
     if (ratio > 0.8) return '#059669'        // emerald-600 (최고)
@@ -146,16 +146,16 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
               key={idx}
               d={d}
               fill={getColor(name, isSelected)}
-              stroke="#ffffff"
-              strokeWidth={isSelected || isHovered ? 2 : 1.2}
+              stroke={isSelected ? "#fb7185" : "#ffffff"}
+              strokeWidth={isSelected ? 3 : isHovered ? 2 : 1.2}
               style={{
                 cursor: 'pointer',
-                transition: 'fill 0.18s, filter 0.18s',
+                transition: 'all 0.2s ease-in-out',
                 filter:
                   isSelected
-                    ? 'drop-shadow(0 0 6px rgba(16,185,129,0.55))'
+                    ? 'drop-shadow(0 0 12px rgba(244,63,94,0.8))'
                     : isHovered
-                    ? 'drop-shadow(0 0 3px rgba(52,211,153,0.4))'
+                    ? 'drop-shadow(0 0 5px rgba(52,211,153,0.5))'
                     : 'none',
               }}
               onClick={() => onDistrictSelect(name)}

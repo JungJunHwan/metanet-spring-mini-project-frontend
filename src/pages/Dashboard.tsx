@@ -88,110 +88,122 @@ export default function Dashboard() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // ── API 호출: AbortController로 페이지 이동 시 진행 중인 요청 즉시 중단 ──
+  // ── API 호출: 의존성 추가 (필터 변경 시 재요청) ──
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
 
     setLoading(true);
-    let completedCount = 0;
-    const totalRequests = 9;
+    setError(null);
 
-    const checkAllFinished = () => {
-      completedCount++;
-      if (completedCount >= totalRequests && mountedRef.current) {
-        setLoading(false);
-      }
-    };
+    // '전체' 선택 시 API에는 undefined 전달 (필터 미적용)
+    const district = selectedDistrict === '전체' ? undefined : selectedDistrict;
+    const month = selectedMonth === '전체' ? undefined : parseInt(selectedMonth);
 
-    // AbortError는 정상적인 중단 — 에러 표시 없이 조용히 무시
     const ignoreAbort = (fn: () => void) => (err: unknown) => {
-      if ((err as any)?.code === 'ERR_CANCELED') return;
+      if ((err as any)?.code === 'ERR_CANCELED' || (err as any)?.name === 'AbortError') return;
       fn();
     };
 
-    // 1. 총 이용건수
-    fetchTotalUsage(signal)
-      .then(res => { if (mountedRef.current) setTotalUsage(res.data ?? 0) })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+    // 모든 API 요청을 Promise 배열로 관리
+    const requests = [
+      // 1. 총 이용건수
+      fetchTotalUsage(district, month, signal)
+        .then(res => { if (mountedRef.current) setTotalUsage(res.data ?? 0) })
+        .catch(ignoreAbort(() => {})),
 
-    // 2. 총 탄소 절감량
-    fetchTotalCarbon(signal)
-      .then(res => { if (mountedRef.current) setTotalCarbon(Math.round(res.data ?? 0)) })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 2. 총 탄소 절감량
+      fetchTotalCarbon(district, month, signal)
+        .then(res => { if (mountedRef.current) setTotalCarbon(Math.round(res.data ?? 0)) })
+        .catch(ignoreAbort(() => {})),
 
-    // 3. 자치구별 현황
-    fetchDistrictUsage(signal)
-      .then(res => { if (mountedRef.current) setDistrictUsage(res.data ?? []) })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 3. 자치구별 현황 (필터링 제외 - 전체 지도 표시용)
+      fetchDistrictUsage(signal)
+        .then(res => { if (mountedRef.current) setDistrictUsage(res.data ?? []) })
+        .catch(ignoreAbort(() => {})),
 
-    // 4. 일별 추이 (월별 합산)
-    fetchDailyTrend(signal)
-      .then(res => { if (mountedRef.current) setDailyTrend(aggregateToMonthly(res.data ?? [])) })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 4. 일별 추이 (월 선택 시 일별, 아니면 월별 합산)
+      fetchDailyTrend(district, month, signal)
+        .then(res => {
+          if (!mountedRef.current) return;
+          const rawData = res.data ?? [];
+          if (selectedMonth === '전체') {
+            setDailyTrend(aggregateToMonthly(rawData));
+          } else {
+            // 특정 월 선택 시: 'YYYY-MM-DD'에서 'DD일' 추출
+            const dailyData = rawData.map(d => ({
+              name: `${parseInt(d.rentDay.slice(8, 10))}일`,
+              usage: Number(d.usageCount)
+            }));
+            setDailyTrend(dailyData);
+          }
+        })
+        .catch(ignoreAbort(() => {})),
 
-    // 5. 인구통계
-    fetchDemographics(signal)
-      .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [])) })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 5. 인구통계
+      fetchDemographics(district, month, signal)
+        .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [])) })
+        .catch(ignoreAbort(() => {})),
 
-    // 7. 상위 대여소
-    fetchTopStations(signal)
-      .then(res => {
-        if (!mountedRef.current) return;
-        setTopStations(
-          (res.data ?? []).map(d => ({
-            name: d.stationName,
-            count: Number(d.usageCount),
-          }))
-        );
-      })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 6. 상위 대여소
+      fetchTopStations(district, month, signal)
+        .then(res => {
+          if (!mountedRef.current) return;
+          setTopStations(
+            (res.data ?? []).map(d => ({
+              name: d.stationName,
+              count: Number(d.usageCount),
+            }))
+          );
+        })
+        .catch(ignoreAbort(() => {})),
 
-    // 8. 대여 유형별 회전율
-    fetchTurnover(signal)
-      .then(res => {
-        if (!mountedRef.current) return;
-        setTurnover(
-          (res.data ?? []).map(d => ({
-            name: d.rentTypeCode ?? '기타',
-            value: Number(d.usageCount),
-          }))
-        );
-      })
-      .catch(ignoreAbort(() => {}))
-      .finally(checkAllFinished);
+      // 7. 대여 유형별 회전율
+      fetchTurnover(district, month, signal)
+        .then(res => {
+          if (!mountedRef.current) return;
+          setTurnover(
+            (res.data ?? []).map(d => ({
+              name: d.rentTypeCode ?? '기타',
+              value: Number(d.usageCount),
+            }))
+          );
+        })
+        .catch(ignoreAbort(() => {})),
 
-    // 8. 이용 시간 및 거리
-    fetchTimeDistance(signal)
-      .then(res => {
-        if (!mountedRef.current) return;
-        setTimeDistance(
-          (res.data ?? []).map(d => ({
-            time: Number(d.useTime)      || 0,
-            count: Number(d.totalDistance) || 0,
-          }))
-        );
-      })
-    // 9. 거리 vs 탄소 절감량
-    fetchDistanceCarbon(signal)
-      .then(res => {
-        if (mountedRef.current) setScatterData(res.data ?? []);
-      })
-      .catch(ignoreAbort(() => {
-        if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
-      }))
-      .finally(checkAllFinished);
+      // 8. 이용 시간 및 거리
+      fetchTimeDistance(district, month, signal)
+        .then(res => {
+          if (!mountedRef.current) return;
+          setTimeDistance(
+            (res.data ?? []).map(d => ({
+              time: Number(d.useTime)      || 0,
+              count: Number(d.totalDistance) || 0,
+            }))
+          );
+        })
+        .catch(ignoreAbort(() => {})),
 
-    // 클린업: 컴포넌트 언마운트(페이지 이동) 시 진행 중인 모든 요청 즉시 중단
+      // 9. 거리 vs 탄소 절감량
+      fetchDistanceCarbon(district, month, signal)
+        .then(res => {
+          if (mountedRef.current) setScatterData(res.data ?? []);
+        })
+        .catch(ignoreAbort(() => {
+          if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
+        })),
+    ];
+
+    // 모든 요청이 완료(성공 또는 실패)되면 로딩 해제
+    Promise.allSettled(requests).finally(() => {
+      if (mountedRef.current && !signal.aborted) {
+        setLoading(false);
+      }
+    });
+
+    // 클린업: 컴포넌트 언마운트 또는 의존성 변경 시 이전 요청 즉시 중단
     return () => { controller.abort(); };
-  }, []);
+  }, [selectedDistrict, selectedMonth]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-6 lg:p-8 font-sans text-slate-900">
