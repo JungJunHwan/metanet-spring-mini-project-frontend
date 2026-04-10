@@ -20,7 +20,7 @@
     "districts": "데이터 수집 자치구",
     "districtsUnit": "개 구",
     "carbon": "총 탄소 절감량",
-    "carbonUnit": "kg CO2"
+    "carbonUnit": "g CO2"
   },
   "chart": {
     "mapTitle": "자치구별 이용 현황",
