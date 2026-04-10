@@ -63,6 +63,52 @@ function aggregateDemographics(
     .map(([name, value]) => ({ name, value }))
 }
 
+// ─── Y축 커스텀 Tick: 긴 대여소 이름 → 다중 줄 tspan ────────────────────
+function splitStationName(name: string): string[] {
+  // ① 괄호가 있으면 괄호 바로 앞에서 분리 (예: "롯데월드타워(잠실역...)")
+  const parenIdx = name.indexOf('(');
+  if (parenIdx > 0) {
+    return [name.slice(0, parenIdx), name.slice(parenIdx)];
+  }
+  // ② 9자 이하이면 한 줄로 충분
+  if (name.length <= 9) return [name];
+  // ③ 공백이 있으면 중간 지점에서 가장 가까운 공백으로 분리
+  const mid = Math.floor(name.length / 2);
+  for (let i = mid; i >= 1; i--) {
+    if (name[i] === ' ') return [name.slice(0, i), name.slice(i + 1)];
+  }
+  for (let i = mid + 1; i < name.length - 1; i++) {
+    if (name[i] === ' ') return [name.slice(0, i), name.slice(i + 1)];
+  }
+  // ④ 자연 분리점이 없으면 9자 단위로 강제 분리
+  return [name.slice(0, 9), name.slice(9)];
+}
+
+interface CustomTickProps {
+  x?: number;
+  y?: number;
+  payload?: { value: string };
+}
+
+function CustomYAxisTick({ x = 0, y = 0, payload }: CustomTickProps) {
+  const lines = splitStationName(payload?.value ?? '');
+  const LINE_HEIGHT = 12;
+  // 여러 줄을 y 기준으로 수직 중앙 정렬
+  const firstDy = -((lines.length - 1) * LINE_HEIGHT) / 2;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="end" fill="#64748b" fontSize={10}>
+        {lines.map((line, i) => (
+          <tspan key={i} x={0} dy={i === 0 ? firstDy : LINE_HEIGHT}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
 export default function Dashboard() {
   const { t } = useTranslation();
   const [selectedDistrict, setSelectedDistrict] = useState('전체');
@@ -345,15 +391,14 @@ export default function Dashboard() {
                   <BarChart
                     layout="vertical"
                     data={topStations}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                   >
                     <XAxis type="number" hide />
                     <YAxis
                       dataKey="name"
                       type="category"
                       width={100}
-                      fontSize={10}
-                      tick={{ fill: '#64748b' }}
+                      tick={<CustomYAxisTick />}
                     />
                     <Tooltip
                       cursor={{ fill: '#f0fdf4' }}
