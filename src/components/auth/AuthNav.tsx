@@ -1,12 +1,38 @@
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { LogIn, UserPlus, User, LogOut, Globe } from 'lucide-react'
+import { LogIn, UserPlus, User, LogOut, Globe, Users } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
 export function AuthNav() {
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
   const { t, i18n } = useTranslation()
+  const [userCount, setUserCount] = useState<number>(0)
+  const [ping, setPing] = useState(0)
+
+  useEffect(() => {
+    // SSE 연결 (vite proxy를 통해 /sse/connect로 요청)
+    const eventSource = new EventSource('/sse/connect')
+
+    eventSource.addEventListener('userCount', (event) => {
+      const count = parseInt(event.data)
+      if (!isNaN(count)) {
+        setUserCount(count)
+        setPing(p => p + 1) // 알림 수신 시마다 애니메이션 트리거
+      }
+    })
+
+    eventSource.onerror = (error) => {
+      console.error('SSE Error:', error)
+      eventSource.close()
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [])
 
   const handleLogout = () => {
     // ① 백엔드 응답 대기 없이 즉시 인증 정보 초기화 → 사용자 체감 속도 향상
@@ -29,14 +55,31 @@ export function AuthNav() {
   }
 
   const LangToggle = (
-    <button
-      onClick={toggleLang}
-      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-emerald-300 hover:text-emerald-600"
-      title="언어 전환 / Switch Language"
-    >
-      <Globe className="h-3.5 w-3.5" />
-      {i18n.language === 'ko' ? 'EN' : 'KO'}
-    </button>
+    <div className="flex items-center gap-2">
+      <motion.div 
+        key={ping}
+        initial={{ scale: 1, backgroundColor: '#ffffff' }}
+        animate={{ 
+          scale: [1, 1.1, 1],
+          backgroundColor: ['#ffffff', '#ecfdf5', '#ffffff'],
+          borderColor: ['#e2e8f0', '#10b981', '#e2e8f0']
+        }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-emerald-600 shadow-sm"
+        title={t('nav.activeUsers', { count: userCount }) || `현재 접속자: ${userCount}명`}
+      >
+        <Users className="h-3.5 w-3.5" />
+        <span>{userCount}</span>
+      </motion.div>
+      <button
+        onClick={toggleLang}
+        className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-emerald-300 hover:text-emerald-600"
+        title="언어 전환 / Switch Language"
+      >
+        <Globe className="h-3.5 w-3.5" />
+        {i18n.language === 'ko' ? 'EN' : 'KO'}
+      </button>
+    </div>
   )
 
   if (token) {
