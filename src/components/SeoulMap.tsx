@@ -198,7 +198,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
 
       {/* 범례: DB 데이터 최솟값~최댓값 표시 */}
       {maxUsage > 0 && (
-        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
+        <div className="absolute bottom-1 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">이용건수</span>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-500">{minUsage.toLocaleString()}</span>

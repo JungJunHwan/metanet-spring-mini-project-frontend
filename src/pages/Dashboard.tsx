@@ -23,6 +23,7 @@ import {
   fetchTopStations,
   fetchTurnover,
   fetchTimeDistance,
+  fetchDistanceCarbon,
   type DistrictUsageItem,
 } from '../api/bikeApi';
 
@@ -76,12 +77,7 @@ export default function Dashboard() {
   const [topStations,      setTopStations]      = useState<StationPoint[]>([]);
   const [turnover,         setTurnover]         = useState<TurnoverPoint[]>([]);
   const [timeDistance,     setTimeDistance]     = useState<TimeDistPoint[]>([]);
-  const [scatterData]                           = useState<ScatterPoint[]>(
-    Array.from({ length: 50 }, () => ({
-      distance: Math.random() * 2000 + 500,
-      carbon:   Math.random() * 500  + 100,
-    }))
-  );
+  const [scatterData,    setScatterData]    = useState<ScatterPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -99,7 +95,7 @@ export default function Dashboard() {
 
     setLoading(true);
     let completedCount = 0;
-    const totalRequests = 8;
+    const totalRequests = 9;
 
     const checkAllFinished = () => {
       completedCount++;
@@ -182,6 +178,11 @@ export default function Dashboard() {
             count: Number(d.totalDistance) || 0,
           }))
         );
+      })
+    // 9. 거리 vs 탄소 절감량
+    fetchDistanceCarbon(signal)
+      .then(res => {
+        if (mountedRef.current) setScatterData(res.data ?? []);
       })
       .catch(ignoreAbort(() => {
         if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
