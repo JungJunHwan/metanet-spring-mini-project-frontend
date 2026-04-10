@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { ajax as axios } from '../api/ajax'
 import { Bike, User, Pencil, Trash2, LogOut, Save, X } from 'lucide-react'
 
 interface UserInfo {
@@ -141,7 +141,7 @@ export default function MyPage() {
     const savedToken = token
     localStorage.removeItem('token')
     localStorage.removeItem('userId')
-    delete axios.defaults.headers.common['Authorization']
+    // Global defaults 삭제 불필요
     navigate('/login')
     if (savedToken) {
       axios.post('/bike/auth/logout', {}, {

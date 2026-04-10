@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
+import { ajax as axios } from '../api/ajax'
 import { Bike, LogIn } from 'lucide-react'
 
 export default function Login() {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import { ajax as axios } from '../api/ajax'
 import { Bike, UserPlus } from 'lucide-react'
 
 const INITIAL = { loginId: '', password: '', name: '', email: '', phone: '', birth: '', gender: '' }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import axios from 'axios'
+import { ajax as axios } from '../api/ajax'
 import { geoMercator, geoPath } from 'd3-geo'
 import type { GeoPermissibleObjects, ExtendedFeature } from 'd3-geo'
 import type { DistrictUsageItem } from '../api/bikeApi'
