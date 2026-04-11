@@ -118,7 +118,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
       {hovered && (
         <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2 select-none rounded-lg bg-slate-800/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-          {hovered}
+          {t(`districts.${hovered}`, { defaultValue: hovered })}
           {usageMap[hovered] != null && (
             <span className="font-normal text-emerald-300">
               &nbsp;— {usageMap[hovered].toLocaleString()}{t('map.usageUnit')}
@@ -164,7 +164,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
               onMouseEnter={() => setHovered(name)}
               onMouseLeave={() => setHovered('')}
             >
-              <title>{name}</title>
+              <title>{t(`districts.${name}`, { defaultValue: name })}</title>
             </path>
           )
         })}
@@ -192,7 +192,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
               pointerEvents="none"
               style={{ userSelect: 'none' }}
             >
-              {name}
+              {t(`districts.${name}`, { defaultValue: name })}
             </text>
           )
         })}

@@ -125,9 +125,9 @@ const TAB_COLORS: Record<string, string[]> = {
 };
 
 export default function Dashboard() {
-  const { t } = useTranslation();
-  const [selectedDistrict, setSelectedDistrict] = useState('전체');
-  const [selectedMonth,    setSelectedMonth]    = useState('전체');
+  const { t, i18n } = useTranslation();
+  const [selectedDistrict, setSelectedDistrict] = useState('ALL');
+  const [selectedMonth,    setSelectedMonth]    = useState('ALL');
 
   // ── Task 3: API 데이터 State ─────────────────────────────────────
   const [totalUsage,       setTotalUsage]       = useState<number | null>(null);
@@ -166,9 +166,9 @@ export default function Dashboard() {
     setTimeDistance(null);
     setScatterData(null);
 
-    // '전체' 선택 시 API에는 undefined 전달 (필터 미적용)
-    const district = selectedDistrict === '전체' ? undefined : selectedDistrict;
-    const month = selectedMonth === '전체' ? undefined : parseInt(selectedMonth);
+    // 'ALL' 선택 시 API에는 undefined 전달 (필터 미적용)
+    const district = selectedDistrict === 'ALL' ? undefined : selectedDistrict;
+    const month = selectedMonth === 'ALL' ? undefined : parseInt(selectedMonth);
 
     const ignoreAbort = (fn: () => void) => (err: unknown) => {
       if ((err as any)?.code === 'ERR_CANCELED' || (err as any)?.name === 'AbortError') return;
@@ -197,7 +197,7 @@ export default function Dashboard() {
         .then(res => {
           if (!mountedRef.current) return;
           const rawData = res.data ?? [];
-          if (selectedMonth === '전체') {
+          if (selectedMonth === 'ALL') {
             setDailyTrend(aggregateToMonthly(rawData, n => t('dashboard.monthLabel', { n })));
           } else {
             // 특정 월 선택 시: 'YYYY-MM-DD'에서 'DD일' 추출
@@ -340,14 +340,16 @@ export default function Dashboard() {
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('filter.districtLabel')}</label>
-            <Select value={selectedDistrict} onValueChange={(v) => setSelectedDistrict(v ?? '전체')}>
+            <Select value={selectedDistrict} onValueChange={(v) => setSelectedDistrict(v ?? 'ALL')}>
               <SelectTrigger className="w-[180px] bg-white border-emerald-100 focus:ring-emerald-500">
                 <SelectValue placeholder={t('filter.districtPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="전체">{t('filter.allDistrict')}</SelectItem>
+                <SelectItem value="ALL">{t('filter.allDistrict')}</SelectItem>
                 {DISTRICTS.map(d => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                  <SelectItem key={d} value={d}>
+                    {t(`districts.${d}`, { defaultValue: d })}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -355,12 +357,12 @@ export default function Dashboard() {
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('filter.monthLabel')}</label>
-            <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v ?? '전체')}>
+            <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v ?? 'ALL')}>
               <SelectTrigger className="w-[140px] bg-white border-emerald-100 focus:ring-emerald-500">
                 <SelectValue placeholder={t('filter.monthPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="전체">{t('filter.allMonth')}</SelectItem>
+                <SelectItem value="ALL">{t('filter.allMonth')}</SelectItem>
                 {Array.from({ length: 12 }, (_, i) => (
                   <SelectItem key={i + 1} value={`${i + 1}`}>{t('filter.month', { n: i + 1 })}</SelectItem>
                 ))}
@@ -618,9 +620,15 @@ export default function Dashboard() {
                   tick={{ fill: '#94a3b8', angle: -20, textAnchor: 'end' }}
                   height={48}
                   interval={0}
+                  tickFormatter={(value: string) =>
+                    t(`ticketTypes.${value}`, { defaultValue: value })
+                  }
                 />
                       <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} />
                       <Tooltip
+                  labelFormatter={(label: string) =>
+                    t(`ticketTypes.${label}`, { defaultValue: label })
+                  }
                   formatter={(v: number) => [v.toLocaleString() + t('dashboard.tooltipUnit'), t('dashboard.tooltipLabel')]}
                 />
                       <Bar
@@ -643,8 +651,11 @@ export default function Dashboard() {
                     formatter={(v: unknown) => {
                       const n   = Number(v);
                       const pct = tabTotal > 0 ? Math.round((n / tabTotal) * 100) : 0;
+                      const isKo = i18n.language === 'ko';
                       const num = n >= 10000
-                        ? `${(n / 10000).toFixed(1)}만`
+                        ? isKo
+                          ? `${(n / 10000).toFixed(1)}${t('dashboard.largeNumSuffix')}`
+                          : `${(n / 1000).toFixed(0)}${t('dashboard.largeNumSuffix')}`
                         : n.toLocaleString();
                       return `${num} (${pct}%)`;
                     }}
