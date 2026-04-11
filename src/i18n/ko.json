@@ -39,10 +39,91 @@
     "mypage": "마이페이지",
     "logout": "로그아웃",
     "login": "로그인",
-    "signup": "회원가입"
+    "signup": "회원가입",
+    "activeUsers": "현재 접속자: {{count}}명"
   },
   "footer": {
     "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
     "source": "Data source: Seoul Open Data Plaza"
+  },
+  "auth": {
+    "brand": "따릉이 대시보드",
+    "login": {
+      "title": "로그인",
+      "subtitle": "계정에 로그인하여 대시보드를 이용하세요.",
+      "submit": "로그인",
+      "submitting": "로그인 중...",
+      "noAccount": "계정이 없으신가요?",
+      "signupLink": "회원가입",
+      "errorDefault": "아이디 또는 비밀번호를 확인해주세요."
+    },
+    "signup": {
+      "title": "회원가입",
+      "subtitle": "새 계정을 만들어 서비스를 이용하세요.",
+      "submit": "가입하기",
+      "submitting": "처리 중...",
+      "hasAccount": "이미 계정이 있으신가요?",
+      "loginLink": "로그인",
+      "success": "회원가입이 완료되었습니다!",
+      "errorDefault": "회원가입 중 오류가 발생했습니다."
+    },
+    "fields": {
+      "id": "아이디",
+      "idPlaceholder": "아이디를 입력하세요",
+      "password": "비밀번호",
+      "passwordPlaceholder": "비밀번호를 입력하세요",
+      "name": "이름",
+      "email": "이메일",
+      "phone": "연락처",
+      "phonePlaceholder": "010-0000-0000",
+      "birth": "생년월일",
+      "gender": "성별",
+      "genderSelect": "선택",
+      "genderMale": "남성",
+      "genderFemale": "여성",
+      "profileImage": "프로필 이미지",
+      "profileImageChange": "프로필 이미지 변경",
+      "newPassword": "새 비밀번호 (변경 시에만)",
+      "imagePreviewAlt": "미리보기"
+    },
+    "mypage": {
+      "editButton": "정보 수정",
+      "logout": "로그아웃",
+      "withdraw": "회원 탈퇴",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "withdrawConfirm": "정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+      "updateSuccess": "정보가 수정되었습니다.",
+      "withdrawSuccess": "회원 탈퇴가 완료되었습니다.",
+      "loadError": "사용자 정보를 불러오는 데 실패했습니다.",
+      "updateError": "정보 수정 중 오류가 발생했습니다.",
+      "withdrawError": "회원 탈퇴 중 오류가 발생했습니다."
+    }
+  },
+  "dashboard": {
+    "tabs": {
+      "all": "전체 보기",
+      "daily": "일일권 상세",
+      "family": "가족권 상세"
+    },
+    "turnoverLabels": {
+      "regular": "정기권",
+      "dailyTotal": "일일권 합계",
+      "familyTotal": "가족권 합계"
+    },
+    "tooltipUnit": "건",
+    "tooltipLabel": "이용건수",
+    "timeUnit": "분",
+    "monthLabel": "{{n}}월",
+    "dayLabel": "{{n}}일",
+    "otherLabel": "기타",
+    "dataError": "일부 데이터를 불러오는 중 오류가 발생했습니다."
+  },
+  "map": {
+    "loading": "지도 로딩 중...",
+    "error": "지도 데이터를 불러오지 못했습니다.",
+    "usageUnit": "건",
+    "legendLabel": "이용건수"
   }
 }

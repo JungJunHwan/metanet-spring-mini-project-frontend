@@ -40,6 +40,7 @@ interface ScatterPoint     { distance: number; carbon: number; weight?: number }
 // ─── 일별 trend → 월별 집계 변환 ────────────────────────────────────
 function aggregateToMonthly(
   raw: { rentDay: string; usageCount: number }[],
+  formatMonth: (n: number) => string,
 ): TrendPoint[] {
   const monthly: Record<string, number> = {}
   raw.forEach(({ rentDay, usageCount }) => {
@@ -48,16 +49,17 @@ function aggregateToMonthly(
   })
   return Object.entries(monthly)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, total]) => ({ name: `${parseInt(month)}월`, usage: total }))
+    .map(([month, total]) => ({ name: formatMonth(parseInt(month)), usage: total }))
 }
 
 // ─── 인구통계 → 연령별 합산 ─────────────────────────────────────────
 function aggregateDemographics(
   raw: { ageGroup: string; gender: string; usageCount: number }[],
+  otherLabel: string,
 ): DemoPoint[] {
   const grouped: Record<string, number> = {}
   raw.forEach(({ ageGroup, usageCount }) => {
-    const key = ageGroup ?? '기타'
+    const key = ageGroup ?? otherLabel
     grouped[key] = (grouped[key] ?? 0) + Number(usageCount)
   })
   return Object.entries(grouped)
@@ -196,11 +198,11 @@ export default function Dashboard() {
           if (!mountedRef.current) return;
           const rawData = res.data ?? [];
           if (selectedMonth === '전체') {
-            setDailyTrend(aggregateToMonthly(rawData));
+            setDailyTrend(aggregateToMonthly(rawData, n => t('dashboard.monthLabel', { n })));
           } else {
             // 특정 월 선택 시: 'YYYY-MM-DD'에서 'DD일' 추출
             const dailyData = rawData.map(d => ({
-              name: `${parseInt(d.rentDay.slice(8, 10))}일`,
+              name: t('dashboard.dayLabel', { n: parseInt(d.rentDay.slice(8, 10)) }),
               usage: Number(d.usageCount)
             }));
             setDailyTrend(dailyData);
@@ -210,7 +212,7 @@ export default function Dashboard() {
 
       // 5. 인구통계
       fetchDemographics(district, month, signal)
-        .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [])) })
+        .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [], t('dashboard.otherLabel'))) })
         .catch(ignoreAbort(() => {})),
 
       // 6. 상위 대여소
@@ -232,7 +234,7 @@ export default function Dashboard() {
           if (!mountedRef.current) return;
           setTurnover(
             (res.data ?? []).map(d => ({
-              name: d.rentTypeCode ?? '기타',
+              name: d.rentTypeCode ?? t('dashboard.otherLabel'),
               value: Number(d.usageCount),
             }))
           );
@@ -263,7 +265,7 @@ export default function Dashboard() {
                   carbon: Number(d.carbon),
                   weight: Number(d.weight || 1)
                 }));
-                
+
               // DOM 렌더링 과부하 방지를 위해 가중치(중복 수)가 높은 상위 500개의 포인트만 렌더링
               const sampledData = mapped
                 .sort((a, b) => b.weight - a.weight)
@@ -273,7 +275,7 @@ export default function Dashboard() {
             }
           })
         .catch(ignoreAbort(() => {
-          if (mountedRef.current) setError('일부 데이터를 불러오는 중 오류가 발생했습니다.');
+          if (mountedRef.current) setError(t('dashboard.dataError'));
         })),
     ];
 
@@ -304,11 +306,11 @@ export default function Dashboard() {
     if (activeTab === 'DAILY')  return [...DAILY_ITEMS].map(name  => ({ name, value: find(name) }));
     if (activeTab === 'FAMILY') return [...FAMILY_ITEMS].map(name => ({ name, value: find(name) }));
     return [
-      { name: '정기권',     value: sumBy('정기권') },
-      { name: '일일권 합계', value: sumBy('일일권') },
-      { name: '가족권 합계', value: sumBy('가족권') },
+      { name: t('dashboard.turnoverLabels.regular'),    value: sumBy('정기권') },
+      { name: t('dashboard.turnoverLabels.dailyTotal'),  value: sumBy('일일권') },
+      { name: t('dashboard.turnoverLabels.familyTotal'), value: sumBy('가족권') },
     ];
-  }, [turnover, activeTab]);
+  }, [turnover, activeTab, t]);
 
   const tabTotal = useMemo(
     () => tabChartData.reduce((s, d) => s + d.value, 0),
@@ -593,7 +595,7 @@ export default function Dashboard() {
                         : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
                     }`}
                   >
-                    {tab === 'ALL' ? '전체 보기' : tab === 'DAILY' ? '일일권 상세' : '가족권 상세'}
+                    {tab === 'ALL' ? t('dashboard.tabs.all') : tab === 'DAILY' ? t('dashboard.tabs.daily') : t('dashboard.tabs.family')}
                   </button>
                 ))}
               </div>
@@ -619,7 +621,7 @@ export default function Dashboard() {
                 />
                       <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} />
                       <Tooltip
-                  formatter={(v: number) => [v.toLocaleString() + '건', '이용건수']}
+                  formatter={(v: number) => [v.toLocaleString() + t('dashboard.tooltipUnit'), t('dashboard.tooltipLabel')]}
                 />
                       <Bar
                   dataKey="value"
@@ -671,7 +673,7 @@ export default function Dashboard() {
                 <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={timeDistance}>
-                      <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit="분" />
+                      <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit={t('dashboard.timeUnit')} />
                       <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
                       <Tooltip />
                       <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
