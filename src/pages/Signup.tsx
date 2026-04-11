@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ajax as axios } from '../api/ajax'
 import { useTranslation } from 'react-i18next'
-import { Bike, UserPlus } from 'lucide-react'
+import { Bike, UserPlus, Upload } from 'lucide-react'
 
 const INITIAL = { loginId: '', password: '', name: '', email: '', phone: '', birth: '', gender: '' }
 
@@ -27,6 +27,33 @@ function Field({ label, name, type = 'text', value, onChange, placeholder, requi
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+      />
+    </div>
+  )
+}
+
+// ── 생년월일 전용 필드: 비포커스 시 type="text" (브라우저 네이티브 "연도-월-일" 숨김)
+//    포커스 시 type="date" 로 전환 → 네이티브 날짜 피커 활성화
+function DateField({ label, name, value, onChange, required }: Omit<FieldProps, 'type' | 'placeholder'>) {
+  const { t } = useTranslation()
+  const [focused, setFocused] = useState(false)
+
+  // 포커스 중이거나 이미 값이 있으면 date 타입 유지 (선택된 날짜를 그대로 표시)
+  const inputType = focused || value ? 'date' : 'text'
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input
+        type={inputType}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        placeholder={t('auth.fields.birthPlaceholder')}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
       />
     </div>
@@ -128,10 +155,9 @@ export default function Signup() {
             placeholder={t('auth.fields.phonePlaceholder')}
             required
           />
-          <Field
+          <DateField
             label={t('auth.fields.birth')}
             name="birth"
-            type="date"
             value={form.birth}
             onChange={handleChange}
             required
@@ -158,12 +184,25 @@ export default function Signup() {
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               {t('auth.fields.profileImage')}
             </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                id="profileImageInput"
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+              <label
+                htmlFor="profileImageInput"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {t('auth.signup.selectFile')}
+              </label>
+              <span className="truncate text-sm text-slate-500">
+                {profileImage?.name ?? t('auth.signup.noFileSelected')}
+              </span>
+            </div>
             {preview && (
               <img
                 src={preview}
