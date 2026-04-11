@@ -169,5 +169,22 @@
     "가족권": "가족권",
     "가족권(2시간)": "가족권(2시간)",
     "가족권(3시간)": "가족권(3시간)"
+  },
+  "compare": {
+    "title": "다중 조건 비교 분석",
+    "subtitle": "두 그룹의 자전거 이용 패턴을 비교해 보세요.",
+    "groupA": "그룹 A 설정",
+    "groupB": "그룹 B 설정",
+    "backToDash": "대시보드로 돌아가기",
+    "compareButton": "비교 분석하기",
+    "radarUsage": "최대 수요",
+    "radarDistance": "장거리 성향",
+    "radarTime": "장시간 성향",
+    "radarCarbon": "친환경 스코어",
+    "rawUsage": "총 이용건수 (건)",
+    "rawDistance": "평균 주행거리 (m)",
+    "rawTime": "평균 이용시간 (분)",
+    "rawCarbon": "건당 탄소절감 (g)",
+    "emptyState": "필터를 선택하여 두 그룹의 데이터를 비교해 보세요."
   }
 }
