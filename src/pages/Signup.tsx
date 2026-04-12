@@ -95,7 +95,7 @@ export default function Signup() {
       alert(t('auth.signup.success'))
       navigate('/login')
     } catch (err: any) {
-      setError(err.response?.data || t('auth.signup.errorDefault'))
+      setError(err.response?.data?.message || err.response?.data || t('auth.signup.errorDefault'))
     } finally {
       setLoading(false)
     }

@@ -81,12 +81,30 @@ export const ajax = {
           let responseData;
           try {
             responseData = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+            // ApiResponse DTO 구조(unwrap) 처리
+            if (responseData && typeof responseData === 'object' && 'status' in responseData && 'message' in responseData) {
+              responseData = responseData.data;
+            }
           } catch (e) {
             responseData = xhr.responseText;
           }
           resolve({ data: responseData as T });
         } else {
-          reject(new Error(`요청 실패 상태코드: ${xhr.status}`));
+          let errorMessage = `요청 실패 상태코드: ${xhr.status}`;
+          let errorData = null;
+          try {
+            errorData = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+            if (errorData && typeof errorData === 'object' && errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch(e) {}
+          
+          const err = new Error(errorMessage) as any;
+          // Axios 호환 에러 객체 구성 (Login.tsx, Signup.tsx 대응)
+          err.response = {
+            data: errorData || errorMessage
+          };
+          reject(err);
         }
       };
 

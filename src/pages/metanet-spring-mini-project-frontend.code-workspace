@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../../springboot-workspace/app"
+		}
+	],
+	"settings": {}
+}
