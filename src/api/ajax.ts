@@ -32,9 +32,26 @@ export const ajax = {
       xhr.open(method, requestUrl, true);
 
       // AbortSignal 처리 로직
+      const onAbort = () => {
+        const err = new Error('canceled') as any;
+        err.name = 'AbortError';
+        err.code = 'ERR_CANCELED';
+        reject(err);
+        xhr.abort();
+      };
+
       if (options.signal) {
-        options.signal.onabort = () => xhr.abort();
+        if (options.signal.aborted) {
+          return onAbort();
+        }
+        options.signal.addEventListener('abort', onAbort);
       }
+      
+      const cleanup = () => {
+        if (options.signal) {
+          options.signal.removeEventListener('abort', onAbort);
+        }
+      };
 
       // JWT 인증 토큰 자동 주입 (인터셉터 역할)
       // 외부 도메인(GitHub GeoJSON 등)에는 Authorization 헤더를 보내지 않아 CORS Preflight 에러 방지
@@ -81,13 +98,13 @@ export const ajax = {
           let responseData;
           try {
             responseData = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-            // ApiResponse DTO 구조(unwrap) 처리
             if (responseData && typeof responseData === 'object' && 'status' in responseData && 'message' in responseData) {
               responseData = responseData.data;
             }
           } catch (e) {
             responseData = xhr.responseText;
           }
+          cleanup();
           resolve({ data: responseData as T });
         } else {
           let errorMessage = `요청 실패 상태코드: ${xhr.status}`;
@@ -100,15 +117,24 @@ export const ajax = {
           } catch(e) {}
           
           const err = new Error(errorMessage) as any;
-          // Axios 호환 에러 객체 구성 (Login.tsx, Signup.tsx 대응)
-          err.response = {
-            data: errorData || errorMessage
-          };
+          err.response = { data: errorData || errorMessage };
+          cleanup();
           reject(err);
         }
       };
 
-      xhr.onerror = () => reject(new Error('네트워크 접속 에러 혹은 AJAX 크로스 오리진 제한'));
+      xhr.onerror = () => {
+        cleanup();
+        reject(new Error('네트워크 접속 에러 혹은 AJAX 크로스 오리진 제한'));
+      };
+      
+      xhr.onabort = () => {
+        cleanup();
+        const err = new Error('canceled') as any;
+        err.name = 'AbortError';
+        err.code = 'ERR_CANCELED';
+        reject(err);
+      };
 
       // Payload 구성 후 발송
       let body = null;

@@ -175,8 +175,13 @@ export default function Dashboard() {
     const district = selectedDistrict === 'ALL' ? undefined : selectedDistrict;
     const month = selectedMonth === 'ALL' ? undefined : parseInt(selectedMonth);
 
-    const ignoreAbort = (fn: () => void) => (err: unknown) => {
-      if ((err as any)?.code === 'ERR_CANCELED' || (err as any)?.name === 'AbortError') return;
+    const ignoreAbort = (fn: () => void, apiName: string) => (err: unknown) => {
+      if ((err as any)?.code === 'ERR_CANCELED' || (err as any)?.name === 'AbortError') {
+        console.log(`[Abort] ${apiName} canceled`);
+        return;
+      }
+      console.error(`[Error] ${apiName} failed:`, err);
+      if (mountedRef.current) setError(apiName + ' ' + t('dashboard.dataError'));
       fn();
     };
 
@@ -184,18 +189,18 @@ export default function Dashboard() {
     const requests = [
       // 1. 총 이용건수
       fetchTotalUsage(district, month, signal)
-        .then(res => { if (mountedRef.current) setTotalUsage(res.data ?? 0) })
-        .catch(ignoreAbort(() => { })),
+        .then(res => { console.log('TotalUsage success', res); if (mountedRef.current) setTotalUsage(res.data ?? 0) })
+        .catch(ignoreAbort(() => { }, 'fetchTotalUsage')),
 
       // 2. 총 탄소 절감량
       fetchTotalCarbon(district, month, signal)
         .then(res => { if (mountedRef.current) setTotalCarbon(Math.round(res.data ?? 0)) })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchTotalCarbon')),
 
       // 3. 자치구별 현황 (필터링 제외 - 전체 지도 표시용)
       fetchDistrictUsage(signal)
         .then(res => { if (mountedRef.current) setDistrictUsage(res.data ?? []) })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchDistrictUsage')),
 
       // 4. 일별 추이 (월 선택 시 일별, 아니면 월별 합산)
       fetchDailyTrend(district, month, signal)
@@ -213,12 +218,12 @@ export default function Dashboard() {
             setDailyTrend(dailyData);
           }
         })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchDailyTrend')),
 
       // 5. 인구통계
       fetchDemographics(district, month, signal)
         .then(res => { if (mountedRef.current) setDemographics(aggregateDemographics(res.data ?? [], t('dashboard.otherLabel'))) })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchDemographics')),
 
       // 6. 상위 대여소
       fetchTopStations(district, month, signal)
@@ -231,7 +236,7 @@ export default function Dashboard() {
             }))
           );
         })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchTopStations')),
 
       // 7. 대여 유형별 회전율
       fetchTurnover(district, month, signal)
@@ -244,7 +249,7 @@ export default function Dashboard() {
             }))
           );
         })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchTurnover')),
 
       // 8. 이용 시간 및 거리
       fetchTimeDistance(district, month, signal)
@@ -257,7 +262,7 @@ export default function Dashboard() {
             }))
           );
         })
-        .catch(ignoreAbort(() => { })),
+        .catch(ignoreAbort(() => { }, 'fetchTimeDistance')),
 
       // 9. 거리 vs 탄소 절감량
       fetchDistanceCarbon(district, month, signal)
@@ -280,14 +285,19 @@ export default function Dashboard() {
           }
         })
         .catch(ignoreAbort(() => {
-          if (mountedRef.current) setError(t('dashboard.dataError'));
-        })),
+          // if (mountedRef.current) setError(t('dashboard.dataError')); // already set in ignoreAbort
+        }, 'fetchDistanceCarbon')),
     ];
 
     // 모든 요청이 완료(성공 또는 실패)되면 로딩 해제 (헤더 아이콘용)
-    Promise.allSettled(requests).finally(() => {
+    Promise.allSettled(requests).then((results) => {
+      console.log('All requests settled. Results:', results.map(r => r.status));
+    }).finally(() => {
       if (mountedRef.current && !signal.aborted) {
+        console.log('Setting loading false');
         setLoading(false);
+      } else {
+        console.log(`finally skipped loading false. mounted: ${mountedRef.current}, aborted: ${signal.aborted}`);
       }
     });
 
@@ -440,25 +450,23 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[180px] p-2 relative">
-              <AnimatePresence mode="wait">
-                {dailyTrend === null ? (
-                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4">
-                    <Skeleton className="w-full h-full" />
-                  </motion.div>
-                ) : (
-                  <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dailyTrend}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
-                        <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {dailyTrend === null ? (
+                <div className="absolute inset-0 p-4">
+                  <Skeleton className="w-full h-full" />
+                </div>
+              ) : (
+                <div className="h-full w-full animate-in fade-in duration-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dailyTrend}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                      <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="usage" stroke="#10b981" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -474,23 +482,21 @@ export default function Dashboard() {
               <p className="text-xs text-slate-400">{t('chart.mapHint')}</p>
             </CardHeader>
             <CardContent className="relative h-[650px] p-0 overflow-hidden">
-              <AnimatePresence mode="wait">
-                {districtUsage === null ? (
-                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-4/5 h-4/5 bg-slate-50 rounded-full animate-pulse flex items-center justify-center">
-                      <MapPin className="w-12 h-12 text-slate-200" />
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div key="content" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="h-full w-full">
-                    <SeoulMap
-                      selectedDistrict={selectedDistrict}
-                      onDistrictSelect={setSelectedDistrict}
-                      districtUsage={districtUsage}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {districtUsage === null ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-4/5 h-4/5 bg-slate-50 rounded-full animate-pulse flex items-center justify-center">
+                    <MapPin className="w-12 h-12 text-slate-200" />
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full w-full animate-in zoom-in-95 duration-300">
+                  <SeoulMap
+                    selectedDistrict={selectedDistrict}
+                    onDistrictSelect={setSelectedDistrict}
+                    districtUsage={districtUsage}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -505,36 +511,34 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 relative h-[300px]">
-              <AnimatePresence mode="wait">
-                {topStations === null ? (
-                  <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4 flex flex-col gap-2">
-                    {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-                  </motion.div>
-                ) : (
-                  <motion.div key="content" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="h-full w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        layout="vertical"
-                        data={topStations}
-                        margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
-                      >
-                        <XAxis type="number" hide />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          width={100}
-                          tick={<CustomYAxisTick />}
-                        />
-                        <Tooltip
-                          cursor={{ fill: '#f0fdf4' }}
-                          contentStyle={{ borderRadius: '8px', border: '1px solid #10b981' }}
-                        />
-                        <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {topStations === null ? (
+                <div className="absolute inset-0 p-4 flex flex-col gap-2">
+                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
+              ) : (
+                <div className="h-full w-full animate-in fade-in slide-in-from-right-4 duration-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={topStations}
+                      margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
+                    >
+                      <XAxis type="number" hide />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={100}
+                        tick={<CustomYAxisTick />}
+                      />
+                      <Tooltip
+                        cursor={{ fill: '#f0fdf4' }}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid #10b981' }}
+                      />
+                      <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -552,24 +556,22 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2 relative">
-            <AnimatePresence mode="wait">
-              {scatterData === null ? (
-                <Skeleton className="absolute inset-4" />
-              ) : (
-                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
-                      <YAxis type="number" dataKey="carbon" name={t('chart.scatterY')} unit="g" fontSize={10} />
-                      <ZAxis type="number" dataKey="weight" range={[20, 200]} name="Count" />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                      <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {scatterData === null ? (
+              <Skeleton className="absolute inset-4" />
+            ) : (
+              <div className="h-full w-full animate-in fade-in duration-300">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
+                    <YAxis type="number" dataKey="carbon" name={t('chart.scatterY')} unit="g" fontSize={10} />
+                    <ZAxis type="number" dataKey="weight" range={[20, 200]} name="Count" />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                    <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -599,68 +601,66 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="h-[240px] p-2 relative">
-            <AnimatePresence mode="wait">
-              {turnover === null ? (
-                <Skeleton className="absolute inset-4" />
-              ) : (
-                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={tabChartData}
-                      margin={{ top: 28, right: 8, left: -10, bottom: 48 }}
+            {turnover === null ? (
+              <Skeleton className="absolute inset-4" />
+            ) : (
+              <div className="h-full w-full animate-in fade-in duration-300">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={tabChartData}
+                    margin={{ top: 28, right: 8, left: -10, bottom: 48 }}
+                  >
+                    <XAxis
+                      dataKey="name"
+                      fontSize={9}
+                      tick={{ fill: '#94a3b8', angle: -20, textAnchor: 'end' }}
+                      height={48}
+                      interval={0}
+                      tickFormatter={(value: string) =>
+                        t(`ticketTypes.${value}`, { defaultValue: value })
+                      }
+                    />
+                    <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} />
+                    <Tooltip
+                      labelFormatter={(label: string) =>
+                        t(`ticketTypes.${label}`, { defaultValue: label })
+                      }
+                      formatter={(v: number) => [v.toLocaleString() + t('dashboard.tooltipUnit'), t('dashboard.tooltipLabel')]}
+                    />
+                    <Bar
+                      dataKey="value"
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
                     >
-                      <XAxis
-                        dataKey="name"
-                        fontSize={9}
-                        tick={{ fill: '#94a3b8', angle: -20, textAnchor: 'end' }}
-                        height={48}
-                        interval={0}
-                        tickFormatter={(value: string) =>
-                          t(`ticketTypes.${value}`, { defaultValue: value })
-                        }
-                      />
-                      <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} />
-                      <Tooltip
-                        labelFormatter={(label: string) =>
-                          t(`ticketTypes.${label}`, { defaultValue: label })
-                        }
-                        formatter={(v: number) => [v.toLocaleString() + t('dashboard.tooltipUnit'), t('dashboard.tooltipLabel')]}
-                      />
-                      <Bar
-                        dataKey="value"
-                        radius={[4, 4, 0, 0]}
-                        isAnimationActive={false}
-                      >
-                        {tabChartData.map((_, idx) => (
-                          <Cell
-                            key={`cell-${idx}`}
-                            fill={(TAB_COLORS[activeTab] ?? TAB_COLORS.ALL)[idx] ?? '#10b981'}
-                          />
-                        ))}
-                        {/* 막대 위 수치 + 비율 라벨 */}
-                        <LabelList
-                          dataKey="value"
-                          position="top"
-                          fontSize={8}
-                          fill="#475569"
-                          formatter={(v: unknown) => {
-                            const n = Number(v);
-                            const pct = tabTotal > 0 ? Math.round((n / tabTotal) * 100) : 0;
-                            const isKo = i18n.language === 'ko';
-                            const num = n >= 10000
-                              ? isKo
-                                ? `${(n / 10000).toFixed(1)}${t('dashboard.largeNumSuffix')}`
-                                : `${(n / 1000).toFixed(0)}${t('dashboard.largeNumSuffix')}`
-                              : n.toLocaleString();
-                            return `${num} (${pct}%)`;
-                          }}
+                      {tabChartData.map((_, idx) => (
+                        <Cell
+                          key={`cell-${idx}`}
+                          fill={(TAB_COLORS[activeTab] ?? TAB_COLORS.ALL)[idx] ?? '#10b981'}
                         />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      ))}
+                      {/* 막대 위 수치 + 비율 라벨 */}
+                      <LabelList
+                        dataKey="value"
+                        position="top"
+                        fontSize={8}
+                        fill="#475569"
+                        formatter={(v: unknown) => {
+                          const n = Number(v);
+                          const pct = tabTotal > 0 ? Math.round((n / tabTotal) * 100) : 0;
+                          const isKo = i18n.language === 'ko';
+                          const num = n >= 10000
+                            ? isKo
+                              ? `${(n / 10000).toFixed(1)}${t('dashboard.largeNumSuffix')}`
+                              : `${(n / 1000).toFixed(0)}${t('dashboard.largeNumSuffix')}`
+                            : n.toLocaleString();
+                          return `${num} (${pct}%)`;
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -672,22 +672,20 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2 relative">
-            <AnimatePresence mode="wait">
-              {timeDistance === null ? (
-                <Skeleton className="absolute inset-4" />
-              ) : (
-                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={timeDistance}>
-                      <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit={t('dashboard.timeUnit')} />
-                      <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {timeDistance === null ? (
+              <Skeleton className="absolute inset-4" />
+            ) : (
+              <div className="h-full w-full animate-in fade-in duration-300">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={timeDistance}>
+                    <XAxis dataKey="time" fontSize={10} tick={{ fill: '#94a3b8' }} unit={t('dashboard.timeUnit')} />
+                    <YAxis fontSize={10} tick={{ fill: '#94a3b8' }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -754,67 +752,63 @@ function DemographicsCard({ demographics }: { demographics: DemoPoint[] | null }
         </CardTitle>
       </CardHeader>
       <CardContent className="h-[300px] p-2 relative">
-        <AnimatePresence mode="wait">
-          {demographics === null ? (
-            <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 p-4">
-              <Skeleton className="w-full h-full" />
-            </motion.div>
-          ) : (
-            <motion.div key="content" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full w-full flex items-center justify-center relative">
-
-              {/* 우측 상단 고정 커스텀 툴팁 */}
-              {activePieIndex !== null && extDemographics.length > 0 && (
-                <div className="absolute -top-4 right-0 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-slate-200 z-10 pointer-events-none">
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: DEMO_COLORS[activePieIndex % DEMO_COLORS.length] }}
-                    />
-                    {extDemographics[activePieIndex].name}
-                  </div>
-                  <div className="text-right text-sm font-bold text-slate-900 mt-0.5">
-                    {extDemographics[activePieIndex].value.toLocaleString()}
-                    <span className="text-[10px] text-slate-400 font-normal ml-0.5">명</span>
-                  </div>
+        {demographics === null ? (
+          <div className="absolute inset-0 p-4">
+            <Skeleton className="w-full h-full" />
+          </div>
+        ) : (
+          <div className="h-full w-full flex items-center justify-center relative animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* 우측 상단 고정 커스텀 툴팁 */}
+            {activePieIndex !== null && extDemographics.length > 0 && (
+              <div className="absolute -top-4 right-0 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-slate-200 z-10 pointer-events-none">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: DEMO_COLORS[activePieIndex % DEMO_COLORS.length] }}
+                  />
+                  {extDemographics[activePieIndex].name}
                 </div>
-              )}
-
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                  <Pie
-                    data={extDemographics}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="60%"
-                    outerRadius="80%"
-                    dataKey="value"
-                    nameKey="name"
-                    stroke="none"
-                    paddingAngle={2}
-                    onMouseEnter={(_, index) => setActivePieIndex(index)}
-                    onMouseLeave={() => setActivePieIndex(null)}
-                  >
-                    {extDemographics.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={DEMO_COLORS[index % DEMO_COLORS.length]} />
-                    ))}
-                    <Label
-                      content={({ viewBox }) => {
-                        const { cx, cy } = viewBox as any;
-                        return (
-                          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-                            <tspan x={cx} y={cy - 18} fontSize="28" fontWeight="bold" fill="#1e293b">{activeDemoPercent}%</tspan>
-                            <tspan x={cx} y={cy + 4} fontSize="12" fill="#94a3b8">{activeDemoName}</tspan>
-                          </text>
-                        );
-                      }}
-                    />
-                  </Pie>
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <div className="text-right text-sm font-bold text-slate-900 mt-0.5">
+                  {extDemographics[activePieIndex].value.toLocaleString()}
+                  <span className="text-[10px] text-slate-400 font-normal ml-0.5">명</span>
+                </div>
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                <Pie
+                  data={extDemographics}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="60%"
+                  outerRadius="80%"
+                  dataKey="value"
+                  nameKey="name"
+                  stroke="none"
+                  paddingAngle={2}
+                  onMouseEnter={(_, index) => setActivePieIndex(index)}
+                  onMouseLeave={() => setActivePieIndex(null)}
+                >
+                  {extDemographics.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={DEMO_COLORS[index % DEMO_COLORS.length]} />
+                  ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      const { cx, cy } = viewBox as any;
+                      return (
+                        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
+                          <tspan x={cx} y={cy - 18} fontSize="28" fontWeight="bold" fill="#1e293b">{activeDemoPercent}%</tspan>
+                          <tspan x={cx} y={cy + 4} fontSize="12" fill="#94a3b8">{activeDemoName}</tspan>
+                        </text>
+                      );
+                    }}
+                  />
+                </Pie>
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
