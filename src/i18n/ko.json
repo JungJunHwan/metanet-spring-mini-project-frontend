@@ -32,7 +32,7 @@
     "scatterX": "거리",
     "scatterY": "탄소",
     "scatterName": "이용건",
-    "turnover": "대여소 회전율 분석 (대여 유형)",
+    "turnover": "대여소 회전율 분석",
     "timeDistance": "이용 시간 및 거리"
   },
   "nav": {
