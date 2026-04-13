@@ -608,12 +608,12 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={tabChartData}
-                    margin={{ top: 28, right: 8, left: -10, bottom: 48 }}
+                    margin={{ top: 20, right: 0, left: 0, bottom: 0 }}
                   >
                     <XAxis
                       dataKey="name"
                       fontSize={9}
-                      tick={{ fill: '#94a3b8', angle: -20, textAnchor: 'end' }}
+                      tick={{ fill: '#94a3b8', angle: 0, textAnchor: 'middle' }}
                       height={48}
                       interval={0}
                       tickFormatter={(value: string) =>
