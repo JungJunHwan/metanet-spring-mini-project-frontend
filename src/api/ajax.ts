@@ -57,7 +57,8 @@ export const ajax = {
       // 외부 도메인(GitHub GeoJSON 등)에는 Authorization 헤더를 보내지 않아 CORS Preflight 에러 방지
       const token = localStorage.getItem('token');
       const isExternal = requestUrl.startsWith('http') && !requestUrl.includes('localhost') && !requestUrl.includes('127.0.0.1');
-      if (token && !isExternal) {
+      const hasAuthHeader = options.headers && Object.keys(options.headers).some(k => k.toLowerCase() === 'authorization');
+      if (token && !isExternal && !hasAuthHeader) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }
 
