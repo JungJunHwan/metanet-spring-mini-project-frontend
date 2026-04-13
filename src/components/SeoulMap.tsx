@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import axios from 'axios'
+import { ajax as axios } from '../api/ajax'
+import { useTranslation } from 'react-i18next'
 import { geoMercator, geoPath } from 'd3-geo'
 import type { GeoPermissibleObjects, ExtendedFeature } from 'd3-geo'
 import type { DistrictUsageItem } from '../api/bikeApi'
@@ -49,6 +50,7 @@ function buildColorFn(
 }
 
 export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [] }: Props) {
+  const { t } = useTranslation()
   const [features, setFeatures] = useState<GeoFeature[]>([])
   const [hovered, setHovered]   = useState('')
   const [loading, setLoading]   = useState(true)
@@ -96,7 +98,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
       <div className="flex w-full h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-200 border-t-emerald-500" />
-          <span className="text-xs text-slate-400">지도 로딩 중...</span>
+          <span className="text-xs text-slate-400">{t('map.loading')}</span>
         </div>
       </div>
     )
@@ -105,7 +107,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
   if (error) {
     return (
       <div className="flex w-full h-full items-center justify-center">
-        <p className="text-xs text-red-400">지도 데이터를 불러오지 못했습니다.</p>
+        <p className="text-xs text-red-400">{t('map.error')}</p>
       </div>
     )
   }
@@ -116,10 +118,10 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
       {hovered && (
         <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2 select-none rounded-lg bg-slate-800/90 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-          {hovered}
+          {t(`districts.${hovered}`, { defaultValue: hovered })}
           {usageMap[hovered] != null && (
             <span className="font-normal text-emerald-300">
-              &nbsp;— {usageMap[hovered].toLocaleString()}건
+              &nbsp;— {usageMap[hovered].toLocaleString()}{t('map.usageUnit')}
             </span>
           )}
         </div>
@@ -128,7 +130,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
       <svg
         viewBox={`0 0 ${W} ${H}`}
         style={{ width: '100%', height: '100%' }}
-        aria-label="서울시 자치구 지도"
+        aria-label={t('chart.mapTitle')}
       >
         {features.map((feature, idx) => {
           const name =
@@ -162,7 +164,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
               onMouseEnter={() => setHovered(name)}
               onMouseLeave={() => setHovered('')}
             >
-              <title>{name}</title>
+              <title>{t(`districts.${name}`, { defaultValue: name })}</title>
             </path>
           )
         })}
@@ -190,7 +192,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
               pointerEvents="none"
               style={{ userSelect: 'none' }}
             >
-              {name}
+              {t(`districts.${name}`, { defaultValue: name })}
             </text>
           )
         })}
@@ -199,7 +201,7 @@ export function SeoulMap({ selectedDistrict, onDistrictSelect, districtUsage = [
       {/* 범례: DB 데이터 최솟값~최댓값 표시 */}
       {maxUsage > 0 && (
         <div className="absolute bottom-1 left-4 z-10 flex flex-col gap-1 rounded-lg bg-white/80 backdrop-blur-sm px-3 py-2 shadow-sm ring-1 ring-emerald-100">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">이용건수</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('map.legendLabel')}</span>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-500">{minUsage.toLocaleString()}</span>
             <div className="w-28 h-2 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-600" />

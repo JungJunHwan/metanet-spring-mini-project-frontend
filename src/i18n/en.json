@@ -20,7 +20,7 @@
     "districts": "Districts Collected",
     "districtsUnit": "districts",
     "carbon": "Total Carbon Saved",
-    "carbonUnit": "kg CO2"
+    "carbonUnit": "g CO2"
   },
   "chart": {
     "mapTitle": "Usage by District",
@@ -39,10 +39,135 @@
     "mypage": "My Page",
     "logout": "Logout",
     "login": "Login",
-    "signup": "Sign Up"
+    "signup": "Sign Up",
+    "activeUsers": "Online: {{count}}"
   },
   "footer": {
     "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
     "source": "Data source: Seoul Open Data Plaza"
+  },
+  "common": {
+    "all": "All"
+  },
+  "auth": {
+    "brand": "Seoul Bike Dashboard",
+    "login": {
+      "title": "Login",
+      "subtitle": "Sign in to your account to use the dashboard.",
+      "submit": "Login",
+      "submitting": "Logging in...",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Sign Up",
+      "errorDefault": "Please check your ID or password."
+    },
+    "signup": {
+      "title": "Sign Up",
+      "subtitle": "Create a new account to get started.",
+      "submit": "Create Account",
+      "submitting": "Processing...",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Login",
+      "success": "Registration complete!",
+      "errorDefault": "An error occurred during sign up.",
+      "selectFile": "Choose File",
+      "noFileSelected": "No file chosen"
+    },
+    "fields": {
+      "id": "ID",
+      "idPlaceholder": "Enter your ID",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "phonePlaceholder": "010-0000-0000",
+      "birth": "Date of Birth",
+      "birthPlaceholder": "YYYY-MM-DD",
+      "gender": "Gender",
+      "genderSelect": "Select",
+      "genderMale": "Male",
+      "genderFemale": "Female",
+      "profileImage": "Profile Image",
+      "profileImageChange": "Change Profile Image",
+      "newPassword": "New Password (only if changing)",
+      "imagePreviewAlt": "Preview"
+    },
+    "mypage": {
+      "editButton": "Edit Profile",
+      "logout": "Logout",
+      "withdraw": "Delete Account",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "withdrawConfirm": "Are you sure you want to delete your account? This action cannot be undone.",
+      "updateSuccess": "Profile updated successfully.",
+      "withdrawSuccess": "Your account has been deleted.",
+      "loadError": "Failed to load user information.",
+      "updateError": "An error occurred while updating your profile.",
+      "withdrawError": "An error occurred while deleting your account."
+    }
+  },
+  "dashboard": {
+    "tabs": {
+      "all": "All",
+      "daily": "Daily Pass",
+      "family": "Family Pass"
+    },
+    "turnoverLabels": {
+      "regular": "Monthly Pass",
+      "dailyTotal": "Daily Pass Total",
+      "familyTotal": "Family Pass Total"
+    },
+    "tooltipUnit": " rides",
+    "tooltipLabel": "Rides",
+    "timeUnit": "min",
+    "monthLabel": "Month {{n}}",
+    "dayLabel": "Day {{n}}",
+    "otherLabel": "Other",
+    "dataError": "An error occurred while loading some data.",
+    "largeNumSuffix": "K",
+    "largeNumDivisor": "1000"
+  },
+  "map": {
+    "loading": "Loading map...",
+    "error": "Failed to load map data.",
+    "usageUnit": " rides",
+    "legendLabel": "Rides"
+  },
+  "districts": {
+    "강남구": "Gangnam-gu",
+    "강동구": "Gangdong-gu",
+    "강북구": "Gangbuk-gu",
+    "강서구": "Gangseo-gu",
+    "관악구": "Gwanak-gu",
+    "광진구": "Gwangjin-gu",
+    "구로구": "Guro-gu",
+    "금천구": "Geumcheon-gu",
+    "노원구": "Nowon-gu",
+    "도봉구": "Dobong-gu",
+    "동대문구": "Dongdaemun-gu",
+    "동작구": "Dongjak-gu",
+    "마포구": "Mapo-gu",
+    "서대문구": "Seodaemun-gu",
+    "서초구": "Seocho-gu",
+    "성동구": "Seongdong-gu",
+    "성북구": "Seongbuk-gu",
+    "송파구": "Songpa-gu",
+    "양천구": "Yangcheon-gu",
+    "영등포구": "Yeongdeungpo-gu",
+    "용산구": "Yongsan-gu",
+    "은평구": "Eunpyeong-gu",
+    "종로구": "Jongno-gu",
+    "중구": "Jung-gu",
+    "중랑구": "Jungnang-gu"
+  },
+  "ticketTypes": {
+    "정기권": "Monthly Pass",
+    "일일권": "Daily Pass",
+    "일일권(비회원)": "Daily Pass (Non-member)",
+    "일일권(비회원 3시간)": "Daily Pass (Non-member, 3h)",
+    "가족권": "Family Pass",
+    "가족권(2시간)": "Family Pass (2h)",
+    "가족권(3시간)": "Family Pass (3h)"
   }
 }

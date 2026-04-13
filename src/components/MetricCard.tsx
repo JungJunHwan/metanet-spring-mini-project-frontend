@@ -29,31 +29,17 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="relative h-[60px]">
-        <AnimatePresence mode="wait">
-          {isLoading ? (
-            <motion.div
-              key="skeleton"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 px-6 pt-1"
-            >
-              <Skeleton className="h-8 w-3/4 mb-1" />
-              <Skeleton className="h-4 w-1/4" />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="content"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="flex items-baseline gap-1"
-            >
-              <span className="text-2xl font-bold text-slate-900">{value}</span>
-              {unit && <span className="text-sm font-medium text-slate-500">{unit}</span>}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {isLoading ? (
+          <div className="absolute inset-0 px-6 pt-1">
+            <Skeleton className="h-8 w-3/4 mb-1" />
+            <Skeleton className="h-4 w-1/4" />
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <span className="text-2xl font-bold text-slate-900">{value}</span>
+            {unit && <span className="text-sm font-medium text-slate-500">{unit}</span>}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -20,7 +20,7 @@
     "districts": "데이터 수집 자치구",
     "districtsUnit": "개 구",
     "carbon": "총 탄소 절감량",
-    "carbonUnit": "kg CO2"
+    "carbonUnit": "g CO2"
   },
   "chart": {
     "mapTitle": "자치구별 이용 현황",
@@ -32,17 +32,159 @@
     "scatterX": "거리",
     "scatterY": "탄소",
     "scatterName": "이용건",
-    "turnover": "대여소 회전율 분석 (대여 유형)",
+    "turnover": "대여소 회전율 분석",
     "timeDistance": "이용 시간 및 거리"
   },
   "nav": {
     "mypage": "마이페이지",
     "logout": "로그아웃",
     "login": "로그인",
-    "signup": "회원가입"
+    "signup": "회원가입",
+    "activeUsers": "현재 접속자: {{count}}명"
   },
   "footer": {
     "rights": "© 2025 Seoul Bike (따릉이) Analytics Dashboard. All rights reserved.",
     "source": "Data source: Seoul Open Data Plaza"
+  },
+  "common": {
+    "all": "전체"
+  },
+  "auth": {
+    "brand": "따릉이 대시보드",
+    "login": {
+      "title": "로그인",
+      "subtitle": "계정에 로그인하여 대시보드를 이용하세요.",
+      "submit": "로그인",
+      "submitting": "로그인 중...",
+      "noAccount": "계정이 없으신가요?",
+      "signupLink": "회원가입",
+      "errorDefault": "아이디 또는 비밀번호를 확인해주세요."
+    },
+    "signup": {
+      "title": "회원가입",
+      "subtitle": "새 계정을 만들어 서비스를 이용하세요.",
+      "submit": "가입하기",
+      "submitting": "처리 중...",
+      "hasAccount": "이미 계정이 있으신가요?",
+      "loginLink": "로그인",
+      "success": "회원가입이 완료되었습니다!",
+      "errorDefault": "회원가입 중 오류가 발생했습니다.",
+      "selectFile": "파일 선택",
+      "noFileSelected": "선택된 파일 없음"
+    },
+    "fields": {
+      "id": "아이디",
+      "idPlaceholder": "아이디를 입력하세요",
+      "password": "비밀번호",
+      "passwordPlaceholder": "비밀번호를 입력하세요",
+      "name": "이름",
+      "email": "이메일",
+      "phone": "연락처",
+      "phonePlaceholder": "010-0000-0000",
+      "birth": "생년월일",
+      "birthPlaceholder": "YYYY-MM-DD",
+      "gender": "성별",
+      "genderSelect": "선택",
+      "genderMale": "남성",
+      "genderFemale": "여성",
+      "profileImage": "프로필 이미지",
+      "profileImageChange": "프로필 이미지 변경",
+      "newPassword": "새 비밀번호 (변경 시에만)",
+      "imagePreviewAlt": "미리보기"
+    },
+    "mypage": {
+      "editButton": "정보 수정",
+      "logout": "로그아웃",
+      "withdraw": "회원 탈퇴",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "withdrawConfirm": "정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+      "updateSuccess": "정보가 수정되었습니다.",
+      "withdrawSuccess": "회원 탈퇴가 완료되었습니다.",
+      "loadError": "사용자 정보를 불러오는 데 실패했습니다.",
+      "updateError": "정보 수정 중 오류가 발생했습니다.",
+      "withdrawError": "회원 탈퇴 중 오류가 발생했습니다."
+    }
+  },
+  "dashboard": {
+    "tabs": {
+      "all": "전체 보기",
+      "daily": "일일권 상세",
+      "family": "가족권 상세"
+    },
+    "turnoverLabels": {
+      "regular": "정기권",
+      "dailyTotal": "일일권 합계",
+      "familyTotal": "가족권 합계"
+    },
+    "tooltipUnit": "건",
+    "tooltipLabel": "이용건수",
+    "timeUnit": "분",
+    "monthLabel": "{{n}}월",
+    "dayLabel": "{{n}}일",
+    "otherLabel": "기타",
+    "dataError": "일부 데이터를 불러오는 중 오류가 발생했습니다.",
+    "largeNumSuffix": "만",
+    "largeNumDivisor": "10000"
+  },
+  "map": {
+    "loading": "지도 로딩 중...",
+    "error": "지도 데이터를 불러오지 못했습니다.",
+    "usageUnit": "건",
+    "legendLabel": "이용건수"
+  },
+  "districts": {
+    "강남구": "강남구",
+    "강동구": "강동구",
+    "강북구": "강북구",
+    "강서구": "강서구",
+    "관악구": "관악구",
+    "광진구": "광진구",
+    "구로구": "구로구",
+    "금천구": "금천구",
+    "노원구": "노원구",
+    "도봉구": "도봉구",
+    "동대문구": "동대문구",
+    "동작구": "동작구",
+    "마포구": "마포구",
+    "서대문구": "서대문구",
+    "서초구": "서초구",
+    "성동구": "성동구",
+    "성북구": "성북구",
+    "송파구": "송파구",
+    "양천구": "양천구",
+    "영등포구": "영등포구",
+    "용산구": "용산구",
+    "은평구": "은평구",
+    "종로구": "종로구",
+    "중구": "중구",
+    "중랑구": "중랑구"
+  },
+  "ticketTypes": {
+    "정기권": "정기권",
+    "일일권": "일일권",
+    "일일권(비회원)": "일일권(비회원)",
+    "일일권(비회원 3시간)": "일일권(비회원 3시간)",
+    "가족권": "가족권",
+    "가족권(2시간)": "가족권(2시간)",
+    "가족권(3시간)": "가족권(3시간)"
+  },
+  "compare": {
+    "title": "다중 조건 비교 분석",
+    "subtitle": "두 그룹의 자전거 이용 패턴을 비교해 보세요.",
+    "groupA": "그룹 A 설정",
+    "groupB": "그룹 B 설정",
+    "backToDash": "대시보드로 돌아가기",
+    "compareButton": "비교 분석하기",
+    "radarUsage": "최대 수요",
+    "radarDistance": "장거리 성향",
+    "radarTime": "장시간 성향",
+    "radarCarbon": "친환경 스코어",
+    "rawUsage": "총 이용건수 (건)",
+    "rawDistance": "평균 주행거리 (m)",
+    "rawTime": "평균 이용시간 (분)",
+    "rawCarbon": "건당 탄소절감 (g)",
+    "emptyState": "필터를 선택하여 두 그룹의 데이터를 비교해 보세요."
   }
 }

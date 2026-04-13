@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { ajax as axios } from '../../api/ajax'
 import { LogIn, UserPlus, User, LogOut, Globe, Users } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +26,7 @@ export function AuthNav() {
 
     eventSource.onerror = (error) => {
       console.error('SSE Error:', error)
-      eventSource.close()
+      // 서버 재시작 등으로 인한 일시적 단절 시 브라우저 내장 자동 재연결 기능이 동작하도록 close()를 제거합니다.
     }
 
     return () => {
@@ -39,8 +39,7 @@ export function AuthNav() {
     const savedToken = token
     localStorage.removeItem('token')
     localStorage.removeItem('userId')
-    // axios 전역 헤더에 남아 있는 인증 토큰도 즉시 제거
-    delete axios.defaults.headers.common['Authorization']
+    // Custom AJAX 유틸리티는 동적으로 localStorage를 사용하므로 defaults 삭제 불필요
     navigate('/login')
     // ② 서버 세션 무효화는 백그라운드로 처리 (fire-and-forget)
     if (savedToken) {
@@ -66,7 +65,7 @@ export function AuthNav() {
         }}
         transition={{ duration: 0.5 }}
         className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold text-emerald-600 shadow-sm"
-        title={t('nav.activeUsers', { count: userCount }) || `현재 접속자: ${userCount}명`}
+        title={t('nav.activeUsers', { count: userCount })}
       >
         <Users className="h-3.5 w-3.5" />
         <span>{userCount}</span>
