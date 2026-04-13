@@ -169,5 +169,42 @@
     "가족권": "Family Pass",
     "가족권(2시간)": "Family Pass (2h)",
     "가족권(3시간)": "Family Pass (3h)"
+  },
+  "compare": {
+    "title": "Multi-condition Comparative Analysis",
+    "subtitle": "Compare cycling usage patterns between two groups.",
+    "groupA": "Group A Settings",
+    "groupB": "Group B Settings",
+    "backToDash": "Back to Dashboard",
+    "compareButton": "Compare Analysis",
+    "loading": "Running comparative analysis...",
+    "radarTitle": "Behavioral Score (Relative Index)",
+    "radarUsage": "Max Demand",
+    "radarDistance": "Long-distance Tendency",
+    "radarTime": "Long-duration Tendency",
+    "radarCarbon": "Eco-friendly Score",
+    "tableTitle": "Detailed Metric Comparison",
+    "rawDataBadge": "Raw Average",
+    "metricHeader": "Metric",
+    "advantage": "Lead",
+    "rawUsage": "Total Rides (count)",
+    "rawDistance": "Avg. Distance (m)",
+    "rawTime": "Avg. Duration (min)",
+    "rawCarbon": "Carbon Saved / Ride (g)",
+    "emptyState": "Select filters to compare data between two groups."
+  },
+  "mypage": {
+    "selectFile": "Choose File",
+    "noFileSelected": "No file chosen"
+  },
+  "ageGroups": {
+    "~10대": "Teens",
+    "20대": "20s",
+    "30대": "30s",
+    "40대": "40s",
+    "50대": "50s",
+    "60대": "60s",
+    "70대이상": "70+",
+    "기타": "Other"
   }
 }

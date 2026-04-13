@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ajax as axios } from '../api/ajax'
 import { useTranslation } from 'react-i18next'
-import { Bike, User, Pencil, Trash2, LogOut, Save, X } from 'lucide-react'
+import { Bike, User, Pencil, Trash2, LogOut, Save, X, Upload } from 'lucide-react'
 
 interface UserInfo {
   userId: string
@@ -306,12 +306,25 @@ export default function MyPage() {
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 {t('auth.fields.profileImageChange')}
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100"
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  id="mypageProfileImageInput"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="mypageProfileImageInput"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {t('mypage.selectFile')}
+                </label>
+                <span className="truncate text-sm text-slate-500">
+                  {newImage?.name ?? t('mypage.noFileSelected')}
+                </span>
+              </div>
               {imagePreview && (
                 <img
                   src={imagePreview}

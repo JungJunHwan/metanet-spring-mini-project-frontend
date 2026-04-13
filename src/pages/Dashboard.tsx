@@ -766,7 +766,7 @@ function DemographicsCard({ demographics }: { demographics: DemoPoint[] | null }
                     className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: DEMO_COLORS[activePieIndex % DEMO_COLORS.length] }}
                   />
-                  {extDemographics[activePieIndex].name}
+                  {t(`ageGroups.${extDemographics[activePieIndex].name}`, { defaultValue: extDemographics[activePieIndex].name })}
                 </div>
                 <div className="text-right text-sm font-bold text-slate-900 mt-0.5">
                   {extDemographics[activePieIndex].value.toLocaleString()}
@@ -798,13 +798,17 @@ function DemographicsCard({ demographics }: { demographics: DemoPoint[] | null }
                       return (
                         <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
                           <tspan x={cx} y={cy - 18} fontSize="28" fontWeight="bold" fill="#1e293b">{activeDemoPercent}%</tspan>
-                          <tspan x={cx} y={cy + 4} fontSize="12" fill="#94a3b8">{activeDemoName}</tspan>
+                          <tspan x={cx} y={cy + 4} fontSize="12" fill="#94a3b8">{t(`ageGroups.${activeDemoName}`, { defaultValue: activeDemoName })}</tspan>
                         </text>
                       );
                     }}
                   />
                 </Pie>
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '11px' }}
+                  formatter={(value: string) => t(`ageGroups.${value}`, { defaultValue: value })}
+                />
               </RechartsPieChart>
             </ResponsiveContainer>
           </div>
