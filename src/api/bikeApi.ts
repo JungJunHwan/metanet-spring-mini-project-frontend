@@ -42,9 +42,29 @@ export interface TimeDistanceItem {
   totalDistance: number;
 }
 
-export interface DistanceCarbonItem {
-  distance: number;   // X축: 주행 거리
-  carbon: number;     // Y축: 탄소 절감량
+/** 이동거리 vs 이용시간 산점도 (버블 크기: weight) */
+export interface DistanceTimeItem {
+  distance: number;   // X축: 이동거리 (m)
+  useTime: number;    // Y축: 이용시간 (분)
+  weight: number;     // 버블 크기: 이용 건수
+}
+
+/** 대여소별 이용건수 vs 평균 이동거리 산점도 */
+export interface AllStationItem {
+  stationName: string;
+  usageCount: number;
+  avgDistance: number;
+}
+
+/** 연령대별 이동거리 분포 박스플롯 */
+export interface AgeDistBoxplotItem {
+  ageGroup: string;
+  minDist: number;
+  q1Dist: number;
+  medianDist: number;
+  q3Dist: number;
+  maxDist: number;
+  totalUseCount: number;
 }
 
 // ─── API 함수 (params 전달 시 필터링 적용, signal 전달 시 페이지 이동 시 요청 중단) ──
@@ -75,5 +95,11 @@ export const fetchTurnover = (district?: string, month?: number, signal?: AbortS
 export const fetchTimeDistance = (district?: string, month?: number, signal?: AbortSignal) =>
   api.get<TimeDistanceItem[]>('/bike/stats/time-distance', { params: { district, month }, signal });
 
-export const fetchDistanceCarbon = (district?: string, month?: number, signal?: AbortSignal) =>
-  api.get<DistanceCarbonItem[]>('/bike/stats/distance-carbon', { params: { district, month }, signal });
+export const fetchDistanceTime = (district?: string, month?: number, signal?: AbortSignal) =>
+  api.get<DistanceTimeItem[]>('/bike/stats/distance-time', { params: { district, month }, signal });
+
+export const fetchAllStations = (district?: string, month?: number, signal?: AbortSignal) =>
+  api.get<AllStationItem[]>('/bike/stats/all-stations', { params: { district, month }, signal });
+
+export const fetchAgeDistance = (district?: string, month?: number, signal?: AbortSignal) =>
+  api.get<AgeDistBoxplotItem[]>('/bike/stats/age-distance', { params: { district, month }, signal });

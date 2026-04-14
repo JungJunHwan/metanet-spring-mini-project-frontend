@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ScatterChart, Scatter, XAxis, YAxis, ZAxis,
   ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
-import { ArrowLeft, Scale, Bike, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Scale } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -13,8 +14,11 @@ import { DISTRICTS } from '../data';
 import {
   fetchTotalUsage,
   fetchTotalCarbon,
-  fetchDistanceCarbon,
+  fetchDistanceTime,
   fetchTimeDistance,
+  fetchAllStations,
+  type DistanceTimeItem,
+  type AllStationItem,
 } from '../api/bikeApi';
 
 // ========================================================
@@ -59,12 +63,11 @@ const fetchGroupMetrics = async (
   const totalCarbon = carbonRes.data ?? 0;
   const avgCarbon = totalUsage > 0 ? totalCarbon / totalUsage : 0;
 
-  // 3. 거리 vs 탄소절감 (평균 거리 계산)
-  const distCarbonRes = await fetchDistanceCarbon(district, month, signal);
+  // 3. 이동거리 vs 이용시간 (평균 거리 계산 - distance/weight 필드 그대로 사용)
+  const distTimeRes = await fetchDistanceTime(district, month, signal);
   let totalDistanceSum = 0;
   let totalDistanceCount = 0;
-  (distCarbonRes.data ?? []).forEach((d: any) => {
-    // d.distance: 주행거리, d.weight: 해당 거리를 주행한 이용건수
+  (distTimeRes.data ?? []).forEach((d: any) => {
     if (d.distance != null && d.weight != null) {
       totalDistanceSum += Number(d.distance) * Number(d.weight);
       totalDistanceCount += Number(d.weight);
@@ -108,6 +111,13 @@ export default function CompareAnalysis() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 산점도 모드 및 데이터
+  const [scatterMode, setScatterMode] = useState<'distance-time' | 'station'>('distance-time');
+  const [scatterDtA, setScatterDtA] = useState<DistanceTimeItem[] | null>(null);
+  const [scatterDtB, setScatterDtB] = useState<DistanceTimeItem[] | null>(null);
+  const [stationA, setStationA] = useState<AllStationItem[] | null>(null);
+  const [stationB, setStationB] = useState<AllStationItem[] | null>(null);
+
   // 데이터 로드 및 취소 처리
   useEffect(() => {
     const controller = new AbortController();
@@ -117,15 +127,31 @@ export default function CompareAnalysis() {
       setError(null);
 
       try {
-        // 병렬 요청
-        const [resA, resB] = await Promise.all([
+        const distA = filterA.district === 'ALL' ? undefined : filterA.district;
+        const monthA = filterA.month === 'ALL' ? undefined : parseInt(filterA.month);
+        const distB = filterB.district === 'ALL' ? undefined : filterB.district;
+        const monthB = filterB.month === 'ALL' ? undefined : parseInt(filterB.month);
+
+        // 병렬 요청: 레이더 메트릭 + 산점도 데이터
+        const [resA, resB, dtResA, dtResB, stResA, stResB] = await Promise.all([
           fetchGroupMetrics(filterA, controller.signal),
-          fetchGroupMetrics(filterB, controller.signal)
+          fetchGroupMetrics(filterB, controller.signal),
+          fetchDistanceTime(distA, monthA, controller.signal),
+          fetchDistanceTime(distB, monthB, controller.signal),
+          fetchAllStations(distA, monthA, controller.signal),
+          fetchAllStations(distB, monthB, controller.signal),
         ]);
-        
+
         if (!controller.signal.aborted) {
           setMetricsA(resA);
           setMetricsB(resB);
+          // 이동거리 vs 이용시간: 상위 300개 (가중치 기준)
+          const sortByWeight = (arr: DistanceTimeItem[]) =>
+            [...arr].sort((a, b) => b.weight - a.weight).slice(0, 300);
+          setScatterDtA(sortByWeight(dtResA.data ?? []));
+          setScatterDtB(sortByWeight(dtResB.data ?? []));
+          setStationA(stResA.data ?? []);
+          setStationB(stResB.data ?? []);
         }
       } catch (err: any) {
         if (!controller.signal.aborted && err.name !== 'AbortError' && err.code !== 'ERR_CANCELED') {
@@ -284,7 +310,9 @@ export default function CompareAnalysis() {
 
       {/* 메인 분석 결과 (차트 & 테이블) */}
       {!loading && !error && metricsA && metricsB && (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+
 
           {/* 아티클 영역: 레이더 차트 (정규화된 점수) */}
           <Card className="shadow-lg border-none bg-white">
@@ -358,6 +386,107 @@ export default function CompareAnalysis() {
           </Card>
 
         </div>
+
+        {/* 산점도 비교 섹션 */}
+        <div className="mt-4">
+          <Card className="shadow-lg border-none bg-white">
+            <CardHeader className="pb-2 pt-5 border-b border-slate-100">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <CardTitle className="text-md font-bold text-slate-800">
+                  {t('compare.scatterTitle')}
+                </CardTitle>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setScatterMode('distance-time')}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      scatterMode === 'distance-time'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
+                    }`}
+                  >
+                    {t('compare.scatterBtn1')}
+                  </button>
+                  <button
+                    onClick={() => setScatterMode('station')}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      scatterMode === 'station'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
+                    }`}
+                  >
+                    {t('compare.scatterBtn2')}
+                  </button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              {scatterMode === 'distance-time' ? (
+                scatterDtA === null || scatterDtB === null ? (
+                  <Skeleton className="h-[320px] w-full" />
+                ) : (
+                  <div style={{ height: 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                        <XAxis
+                          type="number" dataKey="distance"
+                          name={t('compare.scatterX1')} unit="m"
+                          fontSize={10} tick={{ fill: '#94a3b8' }}
+                          label={{ value: t('compare.scatterX1'), position: 'insideBottom', offset: -10, fontSize: 11, fill: '#64748b' }}
+                        />
+                        <YAxis
+                          type="number" dataKey="useTime"
+                          name={t('compare.scatterY1')} unit="분"
+                          fontSize={10} tick={{ fill: '#94a3b8' }}
+                          label={{ value: t('compare.scatterY1'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#64748b' }}
+                        />
+                        <ZAxis type="number" dataKey="weight" range={[10, 80]} name={t('compare.scatterWeight')} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3' }}
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 12 }}
+                        />
+                        <Legend wrapperStyle={{ paddingTop: '8px', fontSize: 12 }} iconType="circle" />
+                        <Scatter name={labelA} data={scatterDtA} fill="#f43f5e" fillOpacity={0.5} />
+                        <Scatter name={labelB} data={scatterDtB} fill="#6366f1" fillOpacity={0.5} />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              ) : (
+                stationA === null || stationB === null ? (
+                  <Skeleton className="h-[320px] w-full" />
+                ) : (
+                  <div style={{ height: 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                        <XAxis
+                          type="number" dataKey="avgDistance"
+                          name={t('compare.scatterX2')} unit="m"
+                          fontSize={10} tick={{ fill: '#94a3b8' }}
+                          label={{ value: t('compare.scatterX2'), position: 'insideBottom', offset: -10, fontSize: 11, fill: '#64748b' }}
+                        />
+                        <YAxis
+                          type="number" dataKey="usageCount"
+                          name={t('compare.scatterY2')}
+                          fontSize={10} tick={{ fill: '#94a3b8' }}
+                          label={{ value: t('compare.scatterY2'), angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#64748b' }}
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3' }}
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: 12 }}
+                        />
+                        <Legend wrapperStyle={{ paddingTop: '8px', fontSize: 12 }} iconType="circle" />
+                        <Scatter name={labelA} data={stationA} fill="#f43f5e" fillOpacity={0.55} />
+                        <Scatter name={labelB} data={stationB} fill="#6366f1" fillOpacity={0.55} />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        </>
       )}
 
     </div>

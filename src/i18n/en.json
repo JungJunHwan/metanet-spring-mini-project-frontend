@@ -28,10 +28,11 @@
     "dailyTrend": "Daily / Monthly Trend",
     "topStations": "Top 10 Stations (Highest Usage)",
     "demographics": "User Demographics (by Age)",
-    "scatter": "Distance vs Carbon Savings",
-    "scatterX": "Distance",
-    "scatterY": "Carbon",
-    "scatterName": "Rides",
+    "boxplot": "Distance Distribution by Age Group",
+    "boxplotMedian": "Median",
+    "boxplotIQR": "IQR (25~75%)",
+    "boxplotMin": "Min",
+    "boxplotMax": "Max",
     "turnover": "Station Turnover (by Rental Type)",
     "timeDistance": "Usage Time & Distance"
   },
@@ -191,7 +192,15 @@
     "rawDistance": "Avg. Distance (m)",
     "rawTime": "Avg. Duration (min)",
     "rawCarbon": "Carbon Saved / Ride (g)",
-    "emptyState": "Select filters to compare data between two groups."
+    "emptyState": "Select filters to compare data between two groups.",
+    "scatterTitle": "Pattern Scatter Plot Comparison",
+    "scatterBtn1": "Distance vs Duration",
+    "scatterBtn2": "Station: Rides vs Avg Distance",
+    "scatterX1": "Distance (m)",
+    "scatterY1": "Duration (min)",
+    "scatterX2": "Avg Distance (m)",
+    "scatterY2": "Rides",
+    "scatterWeight": "Rides"
   },
   "mypage": {
     "selectFile": "Choose File",

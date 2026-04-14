@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, Cell, LabelList, PieChart as RechartsPieChart, Pie, Legend, Label
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Cell, LabelList, PieChart as RechartsPieChart, Pie, Legend, Label
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -26,8 +26,9 @@ import {
   fetchTopStations,
   fetchTurnover,
   fetchTimeDistance,
-  fetchDistanceCarbon,
+  fetchAgeDistance,
   type DistrictUsageItem,
+  type AgeDistBoxplotItem,
 } from '../api/bikeApi';
 
 // ─── 차트용 데이터 타입 ───────────────────────────────────────────────
@@ -36,7 +37,56 @@ interface DemoPoint { name: string; value: number }
 interface StationPoint { name: string; count: number }
 interface TurnoverPoint { name: string; value: number }
 interface TimeDistPoint { time: number; count: number }
-interface ScatterPoint { distance: number; carbon: number; weight?: number }
+
+// 박스플롯 차트용 (stacked bar 방식)
+interface BoxplotChartPoint {
+  name: string;
+  base: number;        // 투명 오프셋 (0 → Q1)
+  iqr: number;         // 색칠 박스 (Q1 → Q3)
+  // custom shape에 전달할 원본 값
+  minDist: number;
+  q1Dist: number;
+  medianDist: number;
+  q3Dist: number;
+  maxDist: number;
+}
+
+// 박스플롯 커스텀 Bar Shape
+const BoxPlotBar = (props: any) => {
+  const { x, y, width, height, minDist, q1Dist, medianDist, q3Dist, maxDist } = props;
+  if (!height || height <= 0 || q3Dist === q1Dist) return <g />;
+
+  const cx = x + width / 2;
+  const pixPerUnit = height / (q3Dist - q1Dist);
+
+  const q1Y = y + height;
+  const q3Y = y;
+  const medianY = q3Y + height * (q3Dist - medianDist) / (q3Dist - q1Dist);
+  const minY = q1Y + (q1Dist - minDist) * pixPerUnit;
+  const maxY = q3Y - (maxDist - q3Dist) * pixPerUnit;
+  const cap = width * 0.3;
+
+  return (
+    <g>
+      {/* IQR 박스 */}
+      <rect x={x} y={q3Y} width={width} height={height}
+        fill="#10b981" fillOpacity={0.65} stroke="#059669" strokeWidth={1.5} rx={2} />
+      {/* 중앙값 선 */}
+      <line x1={x + 2} y1={medianY} x2={x + width - 2} y2={medianY}
+        stroke="#ffffff" strokeWidth={2.5} />
+      {/* 하단 수염: Q1 → min */}
+      <line x1={cx} y1={q1Y} x2={cx} y2={minY}
+        stroke="#059669" strokeWidth={1.5} strokeDasharray="3 2" />
+      <line x1={cx - cap} y1={minY} x2={cx + cap} y2={minY}
+        stroke="#059669" strokeWidth={1.5} />
+      {/* 상단 수염: Q3 → max */}
+      <line x1={cx} y1={q3Y} x2={cx} y2={maxY}
+        stroke="#059669" strokeWidth={1.5} strokeDasharray="3 2" />
+      <line x1={cx - cap} y1={maxY} x2={cx + cap} y2={maxY}
+        stroke="#059669" strokeWidth={1.5} />
+    </g>
+  );
+};
 
 // ─── 일별 trend → 월별 집계 변환 ────────────────────────────────────
 function aggregateToMonthly(
@@ -143,7 +193,7 @@ export default function Dashboard() {
   const [topStations, setTopStations] = useState<StationPoint[] | null>(null);
   const [turnover, setTurnover] = useState<TurnoverPoint[] | null>(null);
   const [timeDistance, setTimeDistance] = useState<TimeDistPoint[] | null>(null);
-  const [scatterData, setScatterData] = useState<ScatterPoint[] | null>(null);
+  const [ageBoxplotData, setAgeBoxplotData] = useState<AgeDistBoxplotItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -169,7 +219,7 @@ export default function Dashboard() {
     setTopStations(null);
     setTurnover(null);
     setTimeDistance(null);
-    setScatterData(null);
+    setAgeBoxplotData(null);
 
     // 'ALL' 선택 시 API에는 undefined 전달 (필터 미적용)
     const district = selectedDistrict === 'ALL' ? undefined : selectedDistrict;
@@ -264,29 +314,12 @@ export default function Dashboard() {
         })
         .catch(ignoreAbort(() => { }, 'fetchTimeDistance')),
 
-      // 9. 거리 vs 탄소 절감량
-      fetchDistanceCarbon(district, month, signal)
+      // 9. 연령대별 이동거리 박스플롯
+      fetchAgeDistance(district, month, signal)
         .then(res => {
-          if (mountedRef.current) {
-            const mapped = (res.data ?? [])
-              .filter((d: any) => d.distance != null && d.carbon != null)
-              .map((d: any) => ({
-                distance: Number(d.distance),
-                carbon: Number(d.carbon),
-                weight: Number(d.weight || 1)
-              }));
-
-            // DOM 렌더링 과부하 방지를 위해 가중치(중복 수)가 높은 상위 500개의 포인트만 렌더링
-            const sampledData = mapped
-              .sort((a, b) => b.weight - a.weight)
-              .slice(0, 500);
-
-            setScatterData(sampledData);
-          }
+          if (mountedRef.current) setAgeBoxplotData(res.data ?? []);
         })
-        .catch(ignoreAbort(() => {
-          // if (mountedRef.current) setError(t('dashboard.dataError')); // already set in ignoreAbort
-        }, 'fetchDistanceCarbon')),
+        .catch(ignoreAbort(() => {}, 'fetchAgeDistance')),
     ];
 
     // 모든 요청이 완료(성공 또는 실패)되면 로딩 해제 (헤더 아이콘용)
@@ -552,26 +585,52 @@ export default function Dashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-500" />
-              {t('chart.scatter')}
+              {t('chart.boxplot')}
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[240px] p-2 relative">
-            {scatterData === null ? (
+            {ageBoxplotData === null ? (
               <Skeleton className="absolute inset-4" />
-            ) : (
-              <div className="h-full w-full animate-in fade-in duration-300">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" dataKey="distance" name={t('chart.scatterX')} unit="m" fontSize={10} />
-                    <YAxis type="number" dataKey="carbon" name={t('chart.scatterY')} unit="g" fontSize={10} />
-                    <ZAxis type="number" dataKey="weight" range={[20, 200]} name="Count" />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter name={t('chart.scatterName')} data={scatterData} fill="#10b981" fillOpacity={0.6} />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            ) : (() => {
+              const boxplotChartData: BoxplotChartPoint[] = ageBoxplotData.map(d => ({
+                name: t(`ageGroups.${d.ageGroup}`, { defaultValue: d.ageGroup }),
+                base: d.q1Dist,
+                iqr: d.q3Dist - d.q1Dist,
+                minDist: d.minDist,
+                q1Dist: d.q1Dist,
+                medianDist: d.medianDist,
+                q3Dist: d.q3Dist,
+                maxDist: d.maxDist,
+              }));
+              return (
+                <div className="h-full w-full animate-in fade-in duration-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={boxplotChartData} margin={{ top: 10, right: 8, bottom: 5, left: 28 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="name" fontSize={9} tick={{ fill: '#94a3b8' }} />
+                      <YAxis fontSize={9} tick={{ fill: '#94a3b8' }} unit="m" />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const d = payload[0].payload as BoxplotChartPoint;
+                          return (
+                            <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2 text-xs space-y-0.5">
+                              <p className="font-bold text-slate-700 mb-1">{d.name}</p>
+                              <p className="text-slate-500">{t('chart.boxplotMax')}: <span className="font-medium text-slate-700">{d.maxDist.toLocaleString()}m</span></p>
+                              <p className="text-slate-500">{t('chart.boxplotIQR')}: <span className="font-medium text-slate-700">{d.q1Dist.toLocaleString()} ~ {d.q3Dist.toLocaleString()}m</span></p>
+                              <p className="text-emerald-600">{t('chart.boxplotMedian')}: <span className="font-bold">{d.medianDist.toLocaleString()}m</span></p>
+                              <p className="text-slate-500">{t('chart.boxplotMin')}: <span className="font-medium text-slate-700">{d.minDist.toLocaleString()}m</span></p>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar dataKey="base" stackId="box" fill="transparent" isAnimationActive={false} />
+                      <Bar dataKey="iqr" stackId="box" shape={<BoxPlotBar />} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
